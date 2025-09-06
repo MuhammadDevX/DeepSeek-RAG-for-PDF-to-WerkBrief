@@ -1,6 +1,4 @@
 "use client";
-
-
 import { motion } from "motion/react";
 import { FeaturesBentoGrid } from './_components/FeaturesBentoGrid'
 import { UserButton, useUser } from "@clerk/nextjs";
@@ -128,6 +126,9 @@ const Navbar = () => {
             </Link>
             <Link href={"/werkbrief-generation"}>
               <Button>Werkbrief creator</Button>
+            </Link >
+            <Link href={"/expand-knowledgebase"}>
+              <Button>Expand Knowledgebase</Button>
             </Link >
             <UserButton />
           </div>
