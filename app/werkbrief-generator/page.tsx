@@ -1,16 +1,20 @@
 import React from "react";
 import { Description } from "./_components/Description";
+import FileUpload from "@/components/ui/file-upload";
+import { Button } from "@/components/ui/button";
 
-interface Props {
-  // propName: string
-}
-
-const page: React.FC<Props> = (props) => {
+const WerkBriefHome = () => {
   return (
-    <div>
+    <div className="flex flex-col items-center justify-center gap-5">
       <Description />
+      <div className="flex items-center align-middle justify-center gap-4">
+        <FileUpload />
+        <div className="flex flex-col items-center align-middle justify-center gap-5">
+          <Button>Download</Button>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default page;
+export default WerkBriefHome;
