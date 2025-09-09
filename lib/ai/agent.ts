@@ -1,10 +1,9 @@
 import { generateObject } from 'ai'
-import { deepseek } from '@/config/agents'
 import { openai } from '@/config/agents'
 import { WerkbriefSchema } from './schema'
 import { werkbriefSystemPrompt } from './prompt'
 import { retrieveRelevantSnippets } from './tool-pinecone'
-import { parsePDF, extractInvoiceDetails } from '@/lib/pdf-parser'
+import { parsePDF } from '@/lib/pdf-parser'
 
 export async function generateWerkbrief(description: string, pdfBuffer?: Buffer) {
   const retrieved = await retrieveRelevantSnippets(description)
@@ -13,8 +12,7 @@ export async function generateWerkbrief(description: string, pdfBuffer?: Buffer)
   if (pdfBuffer) {
     try {
       const parsedPDF = await parsePDF(pdfBuffer)
-      const invoiceDetails = extractInvoiceDetails(parsedPDF.text)
-      pdfContext = `\n\nInvoice/PDF Context:\n${invoiceDetails}`
+      pdfContext = `\n\nInvoice/PDF Context (extracted text):\n${parsedPDF.text}`
     } catch (error) {
       console.warn('Failed to parse PDF:', error)
     }

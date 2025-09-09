@@ -22,20 +22,6 @@ export async function parsePDF(buffer: Buffer): Promise<ParsedPDF> {
 }
 
 export function extractInvoiceDetails(text: string): string {
-  // Extract relevant invoice information from PDF text
-  // This function can be enhanced with more sophisticated parsing logic
-
-  // Look for common invoice patterns
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
-
-  // Extract product-related information
-  const productLines = lines.filter(line =>
-    // Look for lines that might contain product information
-    /^\d+/.test(line) || // Lines starting with numbers (item numbers)
-    /[a-zA-Z]{3,}/.test(line) || // Lines with meaningful text
-    /kg|pcs|ctn|box|piece/i.test(line) || // Lines with quantity indicators
-    /\d+\.\d+/.test(line) // Lines with decimal numbers (prices/weights)
-  )
-
-  return productLines.join('\n')
+  // Return all extracted text without filtering - let the LLM decide what's relevant
+  return text
 }

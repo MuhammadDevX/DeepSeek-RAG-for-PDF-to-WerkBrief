@@ -5,6 +5,8 @@ import PDFUpload from "@/components/ui/pdf-upload";
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
+import { formatForExcel, copyToClipboard } from "@/lib/excel-formatter";
+import { Copy, Check } from "lucide-react";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>
 
@@ -16,6 +18,7 @@ const WerkBriefHome = () => {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Werkbrief | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const onGenerate = async () => {
     setLoading(true)
@@ -51,6 +54,19 @@ const WerkBriefHome = () => {
     }
   }
 
+  const handleCopyToExcel = async () => {
+    if (!result) return
+
+    try {
+      const excelData = formatForExcel(result)
+      await copyToClipboard(excelData)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+    }
+  }
+
   return (
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-3xl mx-auto">
       <Description />
@@ -71,7 +87,27 @@ const WerkBriefHome = () => {
       {error && <div className="text-red-500 text-sm">{error}</div>}
       {result && result.fields && result.fields.length > 0 && (
         <div className="w-full border rounded-md p-4 text-sm space-y-4">
-          <div className="text-lg font-semibold">Generated Werkbrief</div>
+          <div className="flex justify-between items-center">
+            <div className="text-lg font-semibold">Generated Werkbrief</div>
+            <Button
+              onClick={handleCopyToExcel}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 text-green-600" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  Copy to Excel
+                </>
+              )}
+            </Button>
+          </div>
           <div className="space-y-4">
             {result.fields.map((field, index) => (
               <div key={index} className="border rounded p-3 space-y-2">
