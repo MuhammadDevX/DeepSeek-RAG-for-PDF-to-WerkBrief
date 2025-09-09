@@ -20,10 +20,27 @@ export async function retrieveRelevantSnippets(query: string): Promise<string[]>
     includeMetadata: true,
   })
 
-  type Match = { metadata?: { text?: unknown, code: number, desc: string, gdesc: string } }
+  type Match = {
+    metadata?: {
+      text?: string
+      code?: string | number
+      desc?: string
+      gdesc?: string
+      [key: string]: unknown
+    }
+  }
   const matches = (result.matches ?? []) as unknown as Match[]
   const snippets = matches
-    .map(m => (typeof m.metadata?.text === 'string' ? m.metadata.text + m.metadata.desc + m.metadata.gdesc + m.metadata.code : ''))
+    .map(m => {
+      if (!m.metadata) return ''
+      const parts = [
+        m.metadata.text,
+        m.metadata.desc,
+        m.metadata.gdesc,
+        m.metadata.code
+      ].filter(Boolean)
+      return parts.join(' ')
+    })
     .filter(Boolean)
   return snippets
 }

@@ -1,23 +1,18 @@
 "use client";
 import React, { useState } from "react";
 import { Description } from "./_components/Description";
-import FileUpload from "@/components/ui/file-upload";
+import PDFUpload from "@/components/ui/pdf-upload";
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
+import { WerkbriefSchema } from "@/lib/ai/schema";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>
 
-const WerkbriefSchema = z.object({
-  title: z.string(),
-  summary: z.string(),
-  responsibilities: z.array(z.string()),
-  skills: z.array(z.string()),
-  salaryRange: z.object({ min: z.number(), max: z.number(), currency: z.string().optional() }).optional(),
-  benefits: z.array(z.string()).optional(),
-});
+
 
 const WerkBriefHome = () => {
   const [description, setDescription] = useState("")
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Werkbrief | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -27,15 +22,26 @@ const WerkBriefHome = () => {
     setError(null)
     setResult(null)
     try {
+      const formData = new FormData()
+      formData.append('description', description)
+      if (pdfFile) {
+        formData.append('pdf', pdfFile)
+      }
+
       const res = await fetch("/api/werkbrief", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
+        body: formData,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || "Failed to generate")
+
+      console.log("API Response:", data) // Debug log
+
       const parsed = WerkbriefSchema.safeParse(data)
-      if (!parsed.success) throw new Error("Invalid response shape")
+      if (!parsed.success) {
+        console.error("Schema validation failed:", parsed.error)
+        throw new Error(`Invalid response shape: ${parsed.error.message}`)
+      }
       setResult(parsed.data)
     } catch (e) {
       const message = e instanceof Error ? e.message : "Something went wrong"
@@ -54,8 +60,8 @@ const WerkBriefHome = () => {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      <div className="flex items-center align-middle justify-center gap-4 w-full">
-        <FileUpload />
+      <div className="flex flex-col items-center align-middle justify-center gap-4 w-full">
+        <PDFUpload onFileSelect={setPdfFile} selectedFile={pdfFile} />
         <div className="flex flex-col items-center align-middle justify-center gap-3">
           <Button onClick={onGenerate} disabled={loading || !description.trim()}>
             {loading ? "Generating..." : "Generate Werkbrief"}
@@ -63,41 +69,29 @@ const WerkBriefHome = () => {
         </div>
       </div>
       {error && <div className="text-red-500 text-sm">{error}</div>}
-      {result && (
-        <div className="w-full border rounded-md p-4 text-sm space-y-2">
-          <div className="text-lg font-semibold">{result.title}</div>
-          <div className="opacity-80">{result.summary}</div>
-          <div>
-            <div className="font-medium mt-2">Responsibilities</div>
-            <ul className="list-disc pl-6">
-              {result.responsibilities?.map((r: string, i: number) => (
-                <li key={i}>{r}</li>
-              ))}
-            </ul>
+      {result && result.fields && result.fields.length > 0 && (
+        <div className="w-full border rounded-md p-4 text-sm space-y-4">
+          <div className="text-lg font-semibold">Generated Werkbrief</div>
+          <div className="space-y-4">
+            {result.fields.map((field, index) => (
+              <div key={index} className="border rounded p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><strong>Number:</strong> {field.Number}</div>
+                  <div><strong>GOEDEREN CODE:</strong> {field["GOEDEREN CODE"]}</div>
+                </div>
+                <div><strong>GOEDEREN OMSCHRIJVING:</strong> {field["GOEDEREN OMSCHRIJVING"]}</div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><strong>CTNS:</strong> {field.CTNS}</div>
+                  <div><strong>STKS:</strong> {field.STKS}</div>
+                  <div><strong>BRUTO:</strong> {field.BRUTO} kg</div>
+                  <div><strong>FOB:</strong> {field.FOB}</div>
+                </div>
+                {field["AWB - 392754819969-1"] && (
+                  <div><strong>AWB:</strong> {field["AWB - 392754819969-1"]}</div>
+                )}
+              </div>
+            ))}
           </div>
-          <div>
-            <div className="font-medium mt-2">Skills</div>
-            <ul className="list-disc pl-6">
-              {result.skills?.map((r: string, i: number) => (
-                <li key={i}>{r}</li>
-              ))}
-            </ul>
-          </div>
-          {result.salaryRange && (
-            <div className="opacity-80">
-              Salaris: {result.salaryRange.min} - {result.salaryRange.max} {result.salaryRange.currency || "EUR"}
-            </div>
-          )}
-          {result.benefits && result.benefits.length > 0 && (
-            <div>
-              <div className="font-medium mt-2">Benefits</div>
-              <ul className="list-disc pl-6">
-                {result.benefits.map((b: string, i: number) => (
-                  <li key={i}>{b}</li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       )}
     </div>

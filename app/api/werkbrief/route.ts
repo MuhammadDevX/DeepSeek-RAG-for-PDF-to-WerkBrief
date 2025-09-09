@@ -3,17 +3,26 @@ import { generateWerkbrief } from '@/lib/ai/agent'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const description: string = body?.description ?? ''
+    const formData = await req.formData()
+    const description = formData.get('description') as string
+    const pdfFile = formData.get('pdf') as File | null
+
     if (!description) {
       return new Response(JSON.stringify({ error: 'description is required' }), { status: 400 })
     }
 
-    const object = await generateWerkbrief(description)
+    let pdfBuffer: Buffer | undefined
+    if (pdfFile && pdfFile.size > 0) {
+      const arrayBuffer = await pdfFile.arrayBuffer()
+      pdfBuffer = Buffer.from(arrayBuffer)
+    }
+
+    const object = await generateWerkbrief(description, pdfBuffer)
     return new Response(JSON.stringify(object), { status: 200, headers: { 'Content-Type': 'application/json' } })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error)
-    return new Response(JSON.stringify({ error: error?.message ?? 'unknown error' }), { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'unknown error'
+    return new Response(JSON.stringify({ error: errorMessage }), { status: 500 })
   }
 }
 
