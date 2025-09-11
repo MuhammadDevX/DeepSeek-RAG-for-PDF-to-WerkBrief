@@ -16,7 +16,7 @@ export async function retrieveRelevantSnippets(query: string): Promise<string[]>
 
   const result = await index.query({
     vector: embedding,
-    topK: 20,
+    topK: 32,
     includeMetadata: true,
   })
 
