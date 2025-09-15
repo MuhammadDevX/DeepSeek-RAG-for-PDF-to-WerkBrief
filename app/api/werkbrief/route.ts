@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server'
+
+export const runtime = 'nodejs'
 import { generateWerkbrief } from '@/lib/ai/agent'
 
 export async function POST(req: NextRequest) {

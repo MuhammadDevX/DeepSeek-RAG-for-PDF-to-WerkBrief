@@ -3,7 +3,7 @@ import { openai } from '@/config/agents'
 import { WerkbriefSchema } from './schema'
 import { werkbriefSystemPrompt } from './prompt'
 import { retrieveRelevantSnippets } from './tool-pinecone'
-import { parsePDF } from '@/lib/pdf-parser'
+import { extractTextFromPDFBuffer } from '@/lib/extractFromPDF'
 
 export async function generateWerkbrief(description: string, pdfBuffer?: Buffer) {
   const retrieved = await retrieveRelevantSnippets(description)
@@ -11,17 +11,18 @@ export async function generateWerkbrief(description: string, pdfBuffer?: Buffer)
   let pdfContext = ''
   if (pdfBuffer) {
     try {
-      const parsedPDF = await parsePDF(pdfBuffer)
-      pdfContext = `\n\nInvoice/PDF Context (extracted text):\n${parsedPDF.text}`
+      // Server-side safe extraction from Buffer (no worker)
+      const extractedText = await extractTextFromPDFBuffer(pdfBuffer)
+      pdfContext = `\n\nInvoice/PDF Context (extracted text):\n${extractedText}`
     } catch (error) {
       console.warn('Failed to parse PDF:', error)
     }
   }
-
+  console.log("PDF Context", pdfContext)
   const { object } = await generateObject({
     model: openai('gpt-4o-mini'),
     system: werkbriefSystemPrompt,
-    prompt: `Generate a werkbrief for the following description. If helpful, here are retrieval snippets:\n${retrieved.map((r, i) => `(${i + 1}) ${r}`).join('\n')}${pdfContext}`,
+    prompt: `Generate a werkbrief for the following description:${pdfContext}\n. Here are the retrieval elements from DB:\n${retrieved.map((r, i) => `(${i + 1}) ${r}`).join('\n')}`,
     schema: WerkbriefSchema,
   })
 
