@@ -1,46 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseExcelFile, validateExcelColumns, processExcelDataForPinecone } from '@/lib/excel-parser';
+import { processExcelDataForPinecone } from '@/lib/excel-parser';
 import { uploadToPinecone } from '@/lib/pinecone-uploader';
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const body = await request.json();
+    const { excelData } = body;
 
-    if (!file) {
+    if (!excelData) {
       return NextResponse.json(
-        { error: 'No file provided' },
+        { error: 'No Excel data provided' },
         { status: 400 }
       );
     }
 
-    // Validate file type
-    const allowedTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel'
-    ];
-
-    if (!allowedTypes.includes(file.type) &&
-      !file.name.endsWith('.xlsx') &&
-      !file.name.endsWith('.xls')) {
+    // Validate that we have the required structure
+    if (!excelData.rows || !excelData.columns || !Array.isArray(excelData.rows)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Please upload an Excel file (.xlsx or .xls)' },
+        { error: 'Invalid Excel data structure' },
         { status: 400 }
       );
-    }
-
-    // Parse Excel file
-    const excelData = await parseExcelFile(file);
-
-    // Validate columns
-    const validation = validateExcelColumns(excelData.columns);
-
-    if (!validation.isValid) {
-      return NextResponse.json({
-        success: false,
-        validation,
-        error: 'Invalid Excel format'
-      }, { status: 400 });
     }
 
     // Process data for Pinecone
@@ -65,7 +44,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error processing Excel file:', error);
+    console.error('Error processing Excel data:', error);
     return NextResponse.json(
       {
         success: false,

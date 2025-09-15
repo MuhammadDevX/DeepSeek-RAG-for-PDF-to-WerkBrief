@@ -126,9 +126,12 @@ export const Navbar = () => {
             <Link href={"/werkbrief-generator"}>
               <Button>Werkbrief creator</Button>
             </Link >
-            <Link href={"/expand-knowledgebase"}>
+            <Link href={"/expand"}>
               <Button>Expand Knowledgebase</Button>
             </Link >
+            {user.publicMetadata.role === "admin" && <Link href={"/admin"}>
+              <Button>Admin Panel</Button>
+            </Link >}
             <UserButton />
           </div>
       }

@@ -1,10 +1,19 @@
-"use client";
-
+'use client'
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import UploadExcel from "./_components/UploadExcel";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, Upload, Database } from "lucide-react";
+
+interface ExcelRow {
+  [key: string]: string | number | boolean | null;
+}
+
+interface ExcelData {
+  rows: ExcelRow[];
+  columns: string[];
+  sheetName: string;
+}
 
 interface ValidationResult {
   isValid: boolean;
@@ -25,83 +34,34 @@ interface UploadResult {
 
 export default function ExpandPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
+  const [excelData, setExcelData] = useState<ExcelData | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
 
-  const handleFileSelect = (file: File | null) => {
+  const handleFileSelect = (file: File | null, parsedExcelData?: ExcelData, validation?: ValidationResult) => {
     setSelectedFile(file);
-    setValidationResult(null);
+    setExcelData(parsedExcelData || null);
+    setValidationResult(validation || null);
     setUploadResult(null);
-
-    if (file) {
-      validateFile(file);
-    }
   };
 
-  const validateFile = async (file: File) => {
-    setIsValidating(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/expand-knowledgebase', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setValidationResult({
-          isValid: true,
-          message: 'File validation successful! Ready to upload.',
-          columns: result.columns,
-          requiredColumns: [
-            'Item Name',
-            'Goederen Omschrijving',
-            'Goederen Code (HS Code)'
-          ]
-        });
-      } else {
-        setValidationResult({
-          isValid: false,
-          message: result.validation?.message || result.error || 'Validation failed',
-          columns: result.validation?.columns,
-          requiredColumns: result.validation?.requiredColumns,
-          missingColumns: result.validation?.missingColumns
-        });
-      }
-    } catch {
-      setValidationResult({
-        isValid: false,
-        message: 'Failed to validate file. Please try again.',
-        requiredColumns: [
-          'Item Name',
-          'Goederen Omschrijving',
-          'Goederen Code (HS Code)'
-        ]
-      });
-    } finally {
-      setIsValidating(false);
-    }
-  };
 
   const handleUpload = async () => {
-    if (!selectedFile || !validationResult?.isValid) return;
+    if (!excelData || !validationResult?.isValid) return;
 
     setIsUploading(true);
     setUploadResult(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
       const response = await fetch('/api/expand-knowledgebase', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          excelData: excelData
+        }),
       });
 
       const result = await response.json();
@@ -111,6 +71,7 @@ export default function ExpandPage() {
         // Reset form after successful upload
         setTimeout(() => {
           setSelectedFile(null);
+          setExcelData(null);
           setValidationResult(null);
           setUploadResult(null);
           if (document.querySelector('input[type="file"]')) {
@@ -164,7 +125,6 @@ export default function ExpandPage() {
             <UploadExcel
               onFileSelect={handleFileSelect}
               selectedFile={selectedFile}
-              isValidating={isValidating}
               validationResult={validationResult}
             />
           </div>

@@ -3,6 +3,7 @@
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import clsx from "clsx";
+import * as XLSX from 'xlsx';
 import {
   FileSpreadsheet,
   Trash2,
@@ -10,33 +11,145 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-interface UploadExcelProps {
-  onFileSelect: (file: File | null) => void;
-  selectedFile: File | null;
-  isValidating?: boolean;
-  validationResult?: {
-    isValid: boolean;
-    message: string;
-    columns?: string[];
-    requiredColumns?: string[];
-  };
+interface ExcelRow {
+  [key: string]: string | number | boolean | null;
 }
+
+interface ExcelData {
+  rows: ExcelRow[];
+  columns: string[];
+  sheetName: string;
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  message: string;
+  columns?: string[];
+  requiredColumns?: string[];
+  missingColumns?: string[];
+}
+
+interface UploadExcelProps {
+  onFileSelect: (file: File | null, excelData?: ExcelData, validation?: ValidationResult) => void;
+  selectedFile: File | null;
+  validationResult?: ValidationResult;
+}
+
+// Required columns based on the Python notebook
+const REQUIRED_COLUMNS = [
+  'Item Name',
+  'Goederen Omschrijving',
+  'Goederen Code (HS Code)'
+];
 
 export default function UploadExcel({
   onFileSelect,
   selectedFile,
-  isValidating = false,
   validationResult
 }: UploadExcelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const parseExcelFile = (file: File): Promise<ExcelData> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          if (!data) {
+            reject(new Error('Failed to read file'));
+            return;
+          }
+
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          if (jsonData.length === 0) {
+            reject(new Error('Excel file is empty'));
+            return;
+          }
+
+          // First row contains headers
+          const headers = jsonData[0] as string[];
+          const rows = jsonData.slice(1).map((row: (string | number | boolean | null)[]) => {
+            const rowObj: ExcelRow = {};
+            headers.forEach((header, index) => {
+              rowObj[header] = row[index] || '';
+            });
+            return rowObj;
+          });
+
+          resolve({
+            rows,
+            columns: headers,
+            sheetName
+          });
+        } catch (error) {
+          reject(new Error(`Failed to parse Excel file: ${error}`));
+        }
+      };
+
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const validateExcelColumns = (columns: string[]): ValidationResult => {
+    const missingColumns = REQUIRED_COLUMNS.filter(
+      required => !columns.some(col =>
+        col.toLowerCase().trim() === required.toLowerCase().trim()
+      )
+    );
+
+    if (missingColumns.length === 0) {
+      return {
+        isValid: true,
+        message: 'All required columns found!',
+        columns,
+        requiredColumns: REQUIRED_COLUMNS
+      };
+    }
+
+    return {
+      isValid: false,
+      message: `Missing required columns: ${missingColumns.join(', ')}`,
+      columns,
+      requiredColumns: REQUIRED_COLUMNS,
+      missingColumns
+    };
+  };
+
+  const handleFile = async (file: File) => {
     if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
       file.type === 'application/vnd.ms-excel' ||
       file.name.endsWith('.xlsx') ||
       file.name.endsWith('.xls')) {
-      onFileSelect(file);
+
+      try {
+        // Parse Excel file
+        const excelData = await parseExcelFile(file);
+
+        // Validate columns
+        const validation = validateExcelColumns(excelData.columns);
+
+        // Pass file, parsed data, and validation result to parent
+        onFileSelect(file, excelData, validation);
+      } catch (error) {
+        const errorValidation: ValidationResult = {
+          isValid: false,
+          message: error instanceof Error ? error.message : 'Failed to parse Excel file',
+          requiredColumns: REQUIRED_COLUMNS
+        };
+        onFileSelect(file, undefined, errorValidation);
+      }
     } else {
       alert('Please select an Excel file (.xlsx or .xls) only.');
     }
@@ -97,7 +210,6 @@ export default function UploadExcel({
         className={clsx(
           "relative rounded-xl p-6 text-center cursor-pointer bg-secondary/50 border border-primary/10 shadow-sm hover:shadow-md backdrop-blur group",
           isDragging && "ring-4 ring-blue-400/30 border-blue-500",
-          isValidating && "opacity-75 cursor-not-allowed",
         )}
       >
         <div className="flex flex-col items-center gap-3">
@@ -164,7 +276,6 @@ export default function UploadExcel({
             hidden
             onChange={onSelect}
             accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-            disabled={isValidating}
           />
         </div>
       </motion.div>
@@ -236,7 +347,6 @@ export default function UploadExcel({
               onClick={removeFile}
               className="p-1 text-zinc-400 hover:text-red-500 transition-colors duration-200"
               aria-label="Remove file"
-              disabled={isValidating}
             >
               <Trash2 className="w-4 h-4" />
             </button>
