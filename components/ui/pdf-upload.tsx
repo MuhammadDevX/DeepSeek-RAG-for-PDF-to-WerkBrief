@@ -136,7 +136,7 @@ export default function PDFUpload({ onFileSelect, selectedFile }: PDFUploadProps
               )}
             </p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              PDF files only
+              PDF files only. <span className="bg-yellow-100">Try with short pdfs for more accuracy.</span>
             </p>
           </div>
 

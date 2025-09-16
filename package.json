@@ -12,6 +12,8 @@
     "@ai-sdk/deepseek": "^1.0.15",
     "@ai-sdk/openai": "^2.0.27",
     "@clerk/nextjs": "^6.31.9",
+    "@langchain/community": "^0.3.17",
+    "@langchain/core": "^0.3.76",
     "@napi-rs/canvas": "^0.1.56",
     "@openai/agents": "^0.1.1",
     "@pinecone-database/pinecone": "^6.1.2",
