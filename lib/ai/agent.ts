@@ -15,9 +15,7 @@ export async function generateWerkbrief(description: string, pdfBuffer?: Buffer)
       const blob = new Blob([pdfBuffer], { type: 'application/pdf' })
       const loader = new PDFLoader(blob)
       const docs = await loader.load()
-      const tempDocs = docs.slice(0, 1)
-      const extractedText = tempDocs.map(d => d.pageContent).join('\n\n')
-      console.log("Lenght of docs", tempDocs.length)
+      const extractedText = docs.map(d => d.pageContent).join('\n\n')
       pdfContext = `\n\nInvoice/PDF Context (extracted text):\n${extractedText}`
     } catch (error) {
       console.warn('Failed to parse PDF:', error)
