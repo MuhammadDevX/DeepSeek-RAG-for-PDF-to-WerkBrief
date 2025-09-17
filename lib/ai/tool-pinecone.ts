@@ -5,7 +5,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })
 
-export async function retrieveRelevantSnippets(query: string): Promise<string[]> {
+export async function retrieveRelevantSnippets(query: string, topK: number): Promise<string[]> {
   const pc = new Pinecone({ apiKey: getEnvOrThrow('PINECONE_API_KEY') })
   const index = pc.Index(getEnvOrThrow('PINECONE_INDEX'))
 
@@ -16,7 +16,7 @@ export async function retrieveRelevantSnippets(query: string): Promise<string[]>
 
   const result = await index.query({
     vector: embedding,
-    topK: 100,
+    topK: topK + 10,
     includeMetadata: true,
   })
 

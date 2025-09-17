@@ -1,12 +1,11 @@
 import { generateObject } from 'ai'
 import { openai } from '@/config/agents'
-import { WerkbriefSchema } from './schema'
-import { werkbriefSystemPrompt } from './prompt'
+import { ProductsBoughtSchema, WerkbriefSchema } from './schema'
+import { productsAnalyzerPrompt, werkbriefSystemPrompt } from './prompt'
 import { retrieveRelevantSnippets } from './tool-pinecone'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 
 export async function generateWerkbrief(description: string, pdfBuffer?: Buffer) {
-  const retrieved = await retrieveRelevantSnippets(description)
 
   let pdfContext = ''
   if (pdfBuffer) {
@@ -21,15 +20,30 @@ export async function generateWerkbrief(description: string, pdfBuffer?: Buffer)
       console.warn('Failed to parse PDF:', error)
     }
   }
-  console.log("PDF Context", pdfContext)
-  const { object } = await generateObject({
-    model: openai('gpt-4o'),
+
+  console.log("Length of context", pdfContext.length)
+
+  const { object: store } = await generateObject({
+    model: openai('gpt-4o-mini'),
+    system: productsAnalyzerPrompt,
+    prompt: `${pdfContext}`,
+    schema: ProductsBoughtSchema,
+  })
+
+  console.log(store)
+
+  const retrieved = await retrieveRelevantSnippets(`The items bought are: ${store.products.map((p, i) => `${i}.${p.desc}`).join("\n")}`, store.products.length)
+
+  const { object: werkBriefObj } = await generateObject({
+    model: openai('gpt-4o-mini'),
     system: werkbriefSystemPrompt,
-    prompt: `Generate a werkbrief for the following description:${pdfContext}\n. Here are the relevant snippets:\n${retrieved.map((r, i) => `(${i + 1}) ${r}`).join('\n')}`,
+    prompt: `Generate a werkbrief for the following products:${store.products.map((p, i) => {
+      return `${i}.${p.desc}, bruto:${p.bruto}, fob:${p.fob}, awb:${p.awb}, stks:${p.stks}`
+    }).join("\n\n")}\n. Here are the relevant snippets:\n${retrieved.map((r, i) => `(${i + 1}) ${r}`).join('\n')}`,
     schema: WerkbriefSchema,
   })
 
-  return object
+  return werkBriefObj
 }
 
 

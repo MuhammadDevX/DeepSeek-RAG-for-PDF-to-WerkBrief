@@ -13,6 +13,19 @@ export const WerkbriefSchema = z.object({
   }))
 })
 
+
+export const ProductsBoughtSchema = z.object({
+  products: z.array(z.object({
+    "desc": z.string({ description: "Name of the item bought" }),
+    "bruto": z.string({ description: "Number of cartons for that product" }),
+    "stks": z.string({ description: "Pieces (total units inside the carton)" }),
+    "fob": z.string({ description: "cost of goods at origin (without insurance)" }),
+    "awb": z.string({ description: "Air Waybill shipment number" })
+  }))
+})
+
+
+export type Products = z.infer<typeof ProductsBoughtSchema>
 export type Werkbrief = z.infer<typeof WerkbriefSchema>
 
 
