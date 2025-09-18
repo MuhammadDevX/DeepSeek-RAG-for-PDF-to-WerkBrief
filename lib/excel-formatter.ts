@@ -10,6 +10,7 @@ export function formatForExcel(werkbrief: Werkbrief): string {
     "STKS",
     "BRUTO",
     "FOB",
+    "AWB",
   ];
 
   // Add headers
@@ -25,6 +26,7 @@ export function formatForExcel(werkbrief: Werkbrief): string {
       field.STKS.toString(),
       field.BRUTO.toString(),
       field.FOB.toString(),
+      field["AWB - 392754819969-1"].toString() || "-",
     ];
     excelData.push(row.join("\t"));
   });
