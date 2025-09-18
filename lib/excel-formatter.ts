@@ -3,6 +3,7 @@ import { Werkbrief } from "@/lib/ai/schema";
 export function formatForExcel(werkbrief: Werkbrief): string {
   // Create Excel-compatible format with tab-separated values
   const headers = [
+    "Number",
     "GOEDEREN OMSCHRIJVING",
     "GOEDEREN CODE",
     "CTNS",
