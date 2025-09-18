@@ -8,9 +8,9 @@ export function formatForExcel(werkbrief: Werkbrief): string {
   const excelData = [headers.join('\t')]
 
   // Add data rows
-  werkbrief.fields.forEach(field => {
+  werkbrief.fields.forEach((field,index) => {
     const row = [
-      field.Number.toString(),
+      (index + 1).toString(),
       field['GOEDEREN OMSCHRIJVING'],
       field['GOEDEREN CODE'],
       field.CTNS.toString(),
