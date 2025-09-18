@@ -216,6 +216,12 @@ const WerkBriefHome = () => {
                     scope="col"
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                   >
+                    Item Description
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                  >
                     GOEDEREN CODE
                   </th>
                   <th
@@ -264,6 +270,9 @@ const WerkBriefHome = () => {
                       index % 2 === 0 ? "bg-gray-50 dark:bg-gray-800/50" : ""
                     }
                   >
+                    <td className="px-4 py-3 text-sm">
+                      {field["Item Description"]}
+                    </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap">
                       {field["GOEDEREN CODE"]}
                     </td>

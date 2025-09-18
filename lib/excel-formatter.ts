@@ -4,6 +4,7 @@ export function formatForExcel(werkbrief: Werkbrief): string {
   // Create Excel-compatible format with tab-separated values
   const headers = [
     "Number",
+    "Item Description",
     "GOEDEREN OMSCHRIJVING",
     "GOEDEREN CODE",
     "CTNS",
@@ -20,13 +21,14 @@ export function formatForExcel(werkbrief: Werkbrief): string {
   werkbrief.fields.forEach((field, index) => {
     const row = [
       (index + 1).toString(),
+      field["Item Description"],
       field["GOEDEREN OMSCHRIJVING"],
       field["GOEDEREN CODE"],
       field.CTNS.toString(),
       field.STKS.toString(),
       field.BRUTO.toString(),
       field.FOB.toString(),
-      field["AWB - 392754819969-1"].toString() || "-",
+      field["AWB - 392754819969-1"]?.toString() || "-",
     ];
     excelData.push(row.join("\t"));
   });
