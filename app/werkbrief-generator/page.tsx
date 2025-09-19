@@ -237,10 +237,6 @@ const WerkBriefHome = () => {
     // Show undo notification
     setShowUndoNotification(true);
 
-    // Auto-hide undo notification after 5 seconds
-    setTimeout(() => {
-      setShowUndoNotification(false);
-    }, 5000);
   };
 
   // Function to undo the last deletion
@@ -366,8 +362,9 @@ const WerkBriefHome = () => {
                   <button
                     onClick={() => setShowUndoNotification(false)}
                     className="text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:scale-110 transition-all duration-200 p-1 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/30"
+                    title="Dismiss notification"
                   >
-                    ✕
+                    <span className="text-xs font-medium mr-1">Dismiss</span>✕
                   </button>
                 </div>
               </div>
