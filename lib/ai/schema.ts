@@ -22,12 +22,10 @@ export const WerkbriefSchema = z.object({
         description:
           "Free on Board value = cost of goods at origin (without freight/insurance).",
       }),
-      "AWB - 392754819969-1": z
-        .string({
-          description:
-            "Related to the Air Waybill (AWB) shipment number, sometimes filled with costs or notes.",
-        })
-        .optional(),
+      Confidence: z.string({
+        description:
+          "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
+      }),
     })
   ),
 });
@@ -41,7 +39,6 @@ export const ProductsBoughtSchema = z.object({
       fob: z.string({
         description: "cost of goods at origin (without insurance)",
       }),
-      awb: z.string({ description: "Air Waybill shipment number" }),
     })
   ),
 });

@@ -8,7 +8,7 @@ import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 // Parallelization and retry configuration constants
 const MAX_RETRIES = 5;
 const PARALLEL_BATCH_SIZE = 20;
-const DELAY_BETWEEN_BATCHES = 5000; // 5 seconds in milliseconds
+const DELAY_BETWEEN_BATCHES = 3000; // 3 seconds in milliseconds
 const INITIAL_RETRY_DELAY = 1000; // 1 second initial delay for retries
 const MAX_RETRY_DELAY = 30000; // 30 seconds max delay for retries
 
@@ -40,9 +40,9 @@ async function withRetry<T>(
         throw lastError;
       }
 
-      // Calculate delay with exponential backoff and jitter
+      // Calculate delay with exponential backoff (removed random jitter for consistency)
       const delay = Math.min(
-        initialDelay * Math.pow(2, attempt) + Math.random() * 1000,
+        initialDelay * Math.pow(2, attempt),
         MAX_RETRY_DELAY
       );
 
@@ -93,6 +93,8 @@ async function processBatches<T, R>(
       .map((result) => (result as PromiseFulfilledResult<R>).value);
 
     const failedCount = batchResults.length - successfulResults.length;
+    const failedDocuments: Array<{ index: number; error: string }> = [];
+
     if (failedCount > 0) {
       console.warn(
         `${failedCount} items failed in batch ${batchNumber}/${totalBatches} after retries`
@@ -100,9 +102,21 @@ async function processBatches<T, R>(
       // Log specific failures for debugging
       batchResults.forEach((result, index) => {
         if (result.status === "rejected") {
-          console.error(`Item ${i + index + 1} failed:`, result.reason);
+          const documentIndex = i + index + 1;
+          const errorMessage = result.reason?.message || "Unknown error";
+          failedDocuments.push({
+            index: documentIndex,
+            error: errorMessage,
+          });
+          console.error(`Document ${documentIndex} failed:`, errorMessage);
         }
       });
+
+      // Log summary of failed documents
+      console.error(
+        `Failed documents in batch ${batchNumber}:`,
+        failedDocuments
+      );
     }
 
     results.push(...successfulResults);
@@ -143,7 +157,6 @@ export async function generateWerkbrief(
         currentStep: "Parsing PDF document...",
       });
 
-      // Create a Blob for LangChain's PDFLoader and extract text
       const blob = new Blob([new Uint8Array(pdfBuffer)], {
         type: "application/pdf",
       });
@@ -246,12 +259,19 @@ export async function generateWerkbrief(
 }
 
 export async function generateWerkbriefStep(text: string) {
+  // Input validation
+  if (!text || text.trim().length < 10) {
+    console.warn("Text too short for processing:", text.length);
+    return [];
+  }
+
   return await withRetry(async () => {
     const { object: store } = await generateObject({
       model: openai("gpt-4o-mini"),
       system: productsAnalyzerPrompt,
       prompt: `${text.trim()}`,
       schema: ProductsBoughtSchema,
+      temperature: 0, // For deterministic results
     });
 
     console.log(`Products extracted: ${store.products.length}`);
@@ -262,7 +282,7 @@ export async function generateWerkbriefStep(text: string) {
     }
 
     const retrieved = await retrieveRelevantSnippets(
-      `The items bought are: ${store.products
+      `The item descriptions are: ${store.products
         .map((p, i) => `${i}.${p.desc}`)
         .join("\n")}`,
       store.products.length
@@ -273,12 +293,13 @@ export async function generateWerkbriefStep(text: string) {
       system: werkbriefSystemPrompt,
       prompt: `Generate a werkbrief for the following products:${store.products
         .map((p, i) => {
-          return `${i}.${p.desc}, bruto:${p.bruto}, fob:${p.fob}, awb:${p.awb}, stks:${p.stks}`;
+          return `${i}.${p.desc}, bruto:${p.bruto}, fob:${p.fob}, stks:${p.stks}`;
         })
         .join("\n\n")}\n. Here are the relevant snippets:\n${retrieved
         .map((r, i) => `(${i + 1}) ${r}`)
         .join("\n")}`,
       schema: WerkbriefSchema,
+      temperature: 0, 
     });
 
     return werkBriefObj.fields || [];

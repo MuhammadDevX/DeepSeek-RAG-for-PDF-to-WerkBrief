@@ -135,7 +135,7 @@ const WerkBriefHome = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-3xl mx-auto">
+    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-6xl mx-auto">
       <Description />
       <textarea
         className="w-full min-h-32 p-3 border rounded-md bg-transparent"
@@ -185,7 +185,7 @@ const WerkBriefHome = () => {
           <div className="flex justify-between items-center mb-4">
             <div className="text-lg font-semibold">
               Generated Werkbrief{" "}
-              <span className="text-gray-500">
+              <span className="text-gray-500 ps-2">
                 {result.fields.length} items
               </span>
             </div>
@@ -216,19 +216,25 @@ const WerkBriefHome = () => {
                     scope="col"
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                   >
+                    Number
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                  >
                     Item Description
                   </th>
                   <th
                     scope="col"
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                   >
-                    GOEDEREN CODE
+                    GOEDEREN OMSCHRIJVING
                   </th>
                   <th
                     scope="col"
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                   >
-                    GOEDEREN OMSCHRIJVING
+                    GOEDEREN CODE
                   </th>
                   <th
                     scope="col"
@@ -258,7 +264,7 @@ const WerkBriefHome = () => {
                     scope="col"
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                   >
-                    AWB
+                    Confidence
                   </th>
                 </tr>
               </thead>
@@ -270,14 +276,15 @@ const WerkBriefHome = () => {
                       index % 2 === 0 ? "bg-gray-50 dark:bg-gray-800/50" : ""
                     }
                   >
+                    <td className="px-4 py-3 text-sm">{index + 1}</td>
                     <td className="px-4 py-3 text-sm">
                       {field["Item Description"]}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field["GOEDEREN CODE"]}
-                    </td>
                     <td className="px-4 py-3 text-sm">
                       {field["GOEDEREN OMSCHRIJVING"]}
+                    </td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap">
+                      {field["GOEDEREN CODE"]}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap">
                       {field.CTNS}
@@ -289,10 +296,10 @@ const WerkBriefHome = () => {
                       {field.BRUTO}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field.FOB}
+                      ${field.FOB}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field["AWB - 392754819969-1"] || "-"}
+                      {field["Confidence"] || "-"}
                     </td>
                   </tr>
                 ))}
