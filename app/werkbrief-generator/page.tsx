@@ -265,7 +265,7 @@ const WerkBriefHome = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-7xl mx-auto">
+    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-5xl mx-auto">
       <Description />
       <textarea
         className="w-full min-h-32 p-3 border rounded-md bg-transparent"
