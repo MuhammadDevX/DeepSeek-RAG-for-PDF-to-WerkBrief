@@ -36,6 +36,47 @@ export function formatForExcel(werkbrief: Werkbrief): string {
   return excelData.join("\n");
 }
 
+export function formatSelectedFieldsForExcel(
+  fields: Werkbrief["fields"],
+  checkedFields: boolean[]
+): string {
+  // Create Excel-compatible format with tab-separated values
+  const headers = [
+    "Number",
+    "Item Description",
+    "GOEDEREN OMSCHRIJVING",
+    "GOEDEREN CODE",
+    "CTNS",
+    "STKS",
+    "BRUTO",
+    "FOB",
+  ];
+
+  // Add headers
+  const excelData = [headers.join("\t")];
+
+  // Filter fields based on checked status and add data rows
+  let rowNumber = 1;
+  fields.forEach((field, index) => {
+    if (checkedFields[index]) {
+      const row = [
+        rowNumber.toString(),
+        field["Item Description"],
+        field["GOEDEREN OMSCHRIJVING"],
+        field["GOEDEREN CODE"],
+        field.CTNS.toString(),
+        field.STKS.toString(),
+        field.BRUTO.toString(),
+        field.FOB.toString(),
+      ];
+      excelData.push(row.join("\t"));
+      rowNumber++;
+    }
+  });
+
+  return excelData.join("\n");
+}
+
 export function copyToClipboard(text: string): Promise<void> {
   if (navigator.clipboard && window.isSecureContext) {
     return navigator.clipboard.writeText(text);

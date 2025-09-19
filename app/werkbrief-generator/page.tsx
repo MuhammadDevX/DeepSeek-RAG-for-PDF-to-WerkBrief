@@ -1,12 +1,15 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Description } from "./_components/Description";
 import { WerkbriefProgress } from "./_components/WerkbriefProgress";
 import PDFUpload from "@/components/ui/pdf-upload";
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
-import { formatForExcel, copyToClipboard } from "@/lib/excel-formatter";
+import {
+  formatSelectedFieldsForExcel,
+  copyToClipboard,
+} from "@/lib/excel-formatter";
 import { Copy, Check } from "lucide-react";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
@@ -31,6 +34,23 @@ const WerkBriefHome = () => {
   const [copied, setCopied] = useState(false);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
+
+  // State for edited field values and checkbox states
+  const [editedFields, setEditedFields] = useState<Werkbrief["fields"]>([]);
+  const [checkedFields, setCheckedFields] = useState<boolean[]>([]);
+
+  // Initialize edited fields and checkboxes when result changes
+  useEffect(() => {
+    if (result?.fields) {
+      setEditedFields(result.fields);
+      setCheckedFields(
+        result.fields.map((field) => {
+          const confidence = parseFloat(field.Confidence || "0");
+          return confidence > 80;
+        })
+      );
+    }
+  }, [result]);
 
   const onGenerate = async () => {
     setLoading(true);
@@ -122,16 +142,38 @@ const WerkBriefHome = () => {
   };
 
   const handleCopyToExcel = async () => {
-    if (!result) return;
+    if (!result || editedFields.length === 0) return;
 
     try {
-      const excelData = formatForExcel(result);
+      const excelData = formatSelectedFieldsForExcel(
+        editedFields,
+        checkedFields
+      );
       await copyToClipboard(excelData);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error("Failed to copy to clipboard:", error);
     }
+  };
+
+  const handleCheckboxChange = (index: number, checked: boolean) => {
+    const newCheckedFields = [...checkedFields];
+    newCheckedFields[index] = checked;
+    setCheckedFields(newCheckedFields);
+  };
+
+  const handleFieldChange = (
+    index: number,
+    fieldName: keyof Werkbrief["fields"][0],
+    value: string | number
+  ) => {
+    const newEditedFields = [...editedFields];
+    newEditedFields[index] = {
+      ...newEditedFields[index],
+      [fieldName]: value,
+    };
+    setEditedFields(newEditedFields);
   };
 
   return (
@@ -221,6 +263,12 @@ const WerkBriefHome = () => {
                 <tr className="bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-600">
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
                     <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      Copy to Excel
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+                    <div className="flex items-center gap-2">
                       <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                       Number
                     </div>
@@ -252,76 +300,166 @@ const WerkBriefHome = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-700">
-                {result.fields.map((field, index) => (
-                  <tr
-                    key={index}
-                    className={`group transition-all duration-150 hover:bg-blue-50 dark:hover:bg-gray-800/50 ${
-                      index % 2 === 0
-                        ? "bg-white dark:bg-gray-900"
-                        : "bg-gray-50/50 dark:bg-gray-800/20"
-                    }`}
-                  >
-                    <td className="px-6 py-4 text-sm">
-                      <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg flex items-center justify-center font-semibold text-xs">
-                          {index + 1}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white leading-relaxed">
-                        {field["Item Description"]}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                        {field["GOEDEREN OMSCHRIJVING"]}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
-                        {field["GOEDEREN CODE"]}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/20 px-3 py-1 rounded-md inline-block border border-orange-200 dark:border-orange-800">
-                        {field.CTNS}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-md inline-block border border-purple-200 dark:border-purple-800">
-                        {field.STKS}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md inline-block border border-green-200 dark:border-green-800">
-                        {field.BRUTO}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="text-sm font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md inline-block border border-green-200 dark:border-green-800">
-                        ${field.FOB}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          field["Confidence"] &&
-                          parseFloat(field["Confidence"]) > 80
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700"
-                            : field["Confidence"] &&
-                              parseFloat(field["Confidence"]) > 60
-                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700"
-                            : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700"
-                        }`}
-                      >
-                        {field["Confidence"]
-                          ? `${parseFloat(field["Confidence"]).toFixed(0)}%`
-                          : "-"}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {result.fields.map((field, index) => {
+                  const confidence = parseFloat(field.Confidence || "0");
+                  const isHighConfidence = confidence > 80;
+                  const editedField = editedFields[index] || field;
+                  const isChecked = checkedFields[index] || false;
+
+                  return (
+                    <tr
+                      key={index}
+                      className={`group transition-all duration-150 hover:bg-blue-50 dark:hover:bg-gray-800/50 ${
+                        index % 2 === 0
+                          ? "bg-white dark:bg-gray-900"
+                          : "bg-gray-50/50 dark:bg-gray-800/20"
+                      }`}
+                    >
+                      <td className="px-6 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) =>
+                            handleCheckboxChange(index, e.target.checked)
+                          }
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          title={
+                            isHighConfidence
+                              ? "Automatically selected (confidence > 80%)"
+                              : "Low confidence - manually select if needed"
+                          }
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg flex items-center justify-center font-semibold text-xs">
+                            {index + 1}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="text"
+                          value={editedField["Item Description"]}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              index,
+                              "Item Description",
+                              e.target.value
+                            )
+                          }
+                          className="w-full text-sm font-medium text-gray-900 dark:text-white leading-relaxed bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="text"
+                          value={editedField["GOEDEREN OMSCHRIJVING"]}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              index,
+                              "GOEDEREN OMSCHRIJVING",
+                              e.target.value
+                            )
+                          }
+                          className="w-full text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="text"
+                          value={editedField["GOEDEREN CODE"]}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              index,
+                              "GOEDEREN CODE",
+                              e.target.value
+                            )
+                          }
+                          className="w-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <input
+                          type="number"
+                          value={editedField.CTNS}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              index,
+                              "CTNS",
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          className="w-20 text-sm font-semibold text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/20 px-3 py-1 rounded-md border border-orange-200 dark:border-orange-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <input
+                          type="number"
+                          value={editedField.STKS}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              index,
+                              "STKS",
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          className="w-20 text-sm font-semibold text-gray-900 dark:text-white bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-md border border-purple-200 dark:border-purple-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editedField.BRUTO}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              index,
+                              "BRUTO",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="w-24 text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md border border-green-200 dark:border-green-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="relative">
+                          <span className="absolute left-1 top-1/2 transform -translate-y-1/2 text-sm font-bold text-green-700 dark:text-green-400">
+                            $
+                          </span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editedField.FOB}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                index,
+                                "FOB",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-24 pl-6 text-sm font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md border border-green-200 dark:border-green-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            confidence > 80
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700"
+                              : confidence > 60
+                              ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700"
+                              : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700"
+                          }`}
+                        >
+                          {field["Confidence"]
+                            ? `${confidence.toFixed(0)}%`
+                            : "-"}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -329,7 +467,10 @@ const WerkBriefHome = () => {
           {/* Footer */}
           <div className="bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-3">
             <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-              <span>Total Items: {result.fields.length}</span>
+              <span>
+                Total Items: {result.fields.length} | Selected for Export:{" "}
+                {checkedFields.filter(Boolean).length}
+              </span>
               <span>Generated at {new Date().toLocaleTimeString()}</span>
             </div>
           </div>
