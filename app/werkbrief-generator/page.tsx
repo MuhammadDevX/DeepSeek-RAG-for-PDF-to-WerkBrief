@@ -181,130 +181,157 @@ const WerkBriefHome = () => {
         <div className="text-red-500 text-sm">{error}</div>
       )}
       {result && result.fields && result.fields.length > 0 && (
-        <div className="w-full border rounded-md p-4 text-sm space-y-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="text-lg font-semibold">
-              Generated Werkbrief{" "}
-              <span className="text-gray-500 ps-2">
-                {result.fields.length} items
-              </span>
+        <div className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden">
+          {/* Header Section */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                  Generated Werkbrief
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {result.fields.length} items processed successfully
+                </p>
+              </div>
+              <Button
+                onClick={handleCopyToExcel}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600 transition-all duration-200"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 text-green-600" />
+                    <span className="text-green-600 font-medium">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Copy to Excel
+                  </>
+                )}
+              </Button>
             </div>
-            <Button
-              onClick={handleCopyToExcel}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-green-600" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  Copy to Excel
-                </>
-              )}
-            </Button>
           </div>
+
+          {/* Table Section */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-full divide-y divide-gray-200 border">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
-                    Number
+            <table className="w-full min-w-full">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-600">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                      Number
+                    </div>
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
                     Item Description
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
-                    GOEDEREN OMSCHRIJVING
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+                    Goederen Omschrijving
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
-                    GOEDEREN CODE
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+                    Goederen Code
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
                     CTNS
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
                     STKS
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
-                    BRUTO (kg)
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+                    Bruto (kg)
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
-                    FOB
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+                    FOB Value
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                  >
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
                     Confidence
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-700">
                 {result.fields.map((field, index) => (
                   <tr
                     key={index}
-                    className={
-                      index % 2 === 0 ? "bg-gray-50 dark:bg-gray-800/50" : ""
-                    }
+                    className={`group transition-all duration-150 hover:bg-blue-50 dark:hover:bg-gray-800/50 ${
+                      index % 2 === 0
+                        ? "bg-white dark:bg-gray-900"
+                        : "bg-gray-50/50 dark:bg-gray-800/20"
+                    }`}
                   >
-                    <td className="px-4 py-3 text-sm">{index + 1}</td>
-                    <td className="px-4 py-3 text-sm">
-                      {field["Item Description"]}
+                    <td className="px-6 py-4 text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg flex items-center justify-center font-semibold text-xs">
+                          {index + 1}
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      {field["GOEDEREN OMSCHRIJVING"]}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white leading-relaxed">
+                        {field["Item Description"]}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field["GOEDEREN CODE"]}
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {field["GOEDEREN OMSCHRIJVING"]}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field.CTNS}
+                    <td className="px-6 py-4">
+                      <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
+                        {field["GOEDEREN CODE"]}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field.STKS}
+                    <td className="px-6 py-4 text-center">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/20 px-3 py-1 rounded-md inline-block border border-orange-200 dark:border-orange-800">
+                        {field.CTNS}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field.BRUTO}
+                    <td className="px-6 py-4 text-center">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-md inline-block border border-purple-200 dark:border-purple-800">
+                        {field.STKS}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      ${field.FOB}
+                    <td className="px-6 py-4 text-center">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md inline-block border border-green-200 dark:border-green-800">
+                        {field.BRUTO}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {field["Confidence"] || "-"}
+                    <td className="px-6 py-4 text-center">
+                      <div className="text-sm font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md inline-block border border-green-200 dark:border-green-800">
+                        ${field.FOB}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          field["Confidence"] &&
+                          parseFloat(field["Confidence"]) > 80
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700"
+                            : field["Confidence"] &&
+                              parseFloat(field["Confidence"]) > 60
+                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700"
+                            : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700"
+                        }`}
+                      >
+                        {field["Confidence"]
+                          ? `${parseFloat(field["Confidence"]).toFixed(0)}%`
+                          : "-"}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-3">
+            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <span>Total Items: {result.fields.length}</span>
+              <span>Generated at {new Date().toLocaleTimeString()}</span>
+            </div>
           </div>
         </div>
       )}
