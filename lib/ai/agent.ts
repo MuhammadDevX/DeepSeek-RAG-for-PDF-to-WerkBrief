@@ -150,9 +150,27 @@ export async function generateWerkbrief(
   }) => void
 ) {
   let docs = [];
+  let isProcessingComplete = false;
+
+  // Safe progress function that checks completion state
+  const safeProgress = (
+    progress: Parameters<NonNullable<typeof onProgress>>[0]
+  ) => {
+    if (isProcessingComplete) {
+      console.warn("Attempted to send progress after processing completed");
+      return;
+    }
+    try {
+      onProgress?.(progress);
+    } catch (error) {
+      console.error("Error sending progress update:", error);
+      isProcessingComplete = true;
+    }
+  };
+
   if (pdfBuffer) {
     try {
-      onProgress?.({
+      safeProgress({
         type: "progress",
         currentStep: "Parsing PDF document...",
       });
@@ -163,7 +181,7 @@ export async function generateWerkbrief(
       const loader = new PDFLoader(blob);
       docs = await loader.load();
 
-      onProgress?.({
+      safeProgress({
         type: "progress",
         currentStep: `PDF parsed successfully. Found ${docs.length} document${
           docs.length !== 1 ? "s" : ""
@@ -173,18 +191,20 @@ export async function generateWerkbrief(
       });
     } catch (error) {
       console.warn("Failed to parse PDF:", error);
-      onProgress?.({ type: "error", error: "Failed to parse PDF document" });
+      safeProgress({ type: "error", error: "Failed to parse PDF document" });
+      isProcessingComplete = true;
     }
   }
 
   if (docs.length === 0) {
     console.log("No documents to process");
-    onProgress?.({ type: "complete", data: { fields: [] } });
+    safeProgress({ type: "complete", data: { fields: [] } });
+    isProcessingComplete = true;
     return { fields: [] };
   }
 
   console.log(`Starting parallel processing of ${docs.length} documents...`);
-  onProgress?.({
+  safeProgress({
     type: "progress",
     currentStep: `Starting to process ${docs.length} document${
       docs.length !== 1 ? "s" : ""
@@ -199,6 +219,13 @@ export async function generateWerkbrief(
 
     // Process documents in parallel batches with atomic progress tracking
     const allFields = await processBatches(docs, async (doc, index) => {
+      if (isProcessingComplete) {
+        console.warn(
+          `Skipping document ${index + 1} - processing already complete`
+        );
+        return [];
+      }
+
       console.log(`Processing document ${index + 1}/${docs.length}...`);
 
       const docContent = doc.pageContent;
@@ -218,16 +245,18 @@ export async function generateWerkbrief(
         } fields. Total completed: ${currentCompleted}/${docs.length}`
       );
 
-      onProgress?.({
-        type: "progress",
-        currentStep: `Completed ${currentCompleted} of ${
-          docs.length
-        } documents. Found ${
-          productsStep?.length || 0
-        } products in this document`,
-        totalDocuments: docs.length,
-        processedDocuments: currentCompleted,
-      });
+      if (!isProcessingComplete) {
+        safeProgress({
+          type: "progress",
+          currentStep: `Completed ${currentCompleted} of ${
+            docs.length
+          } documents. Found ${
+            productsStep?.length || 0
+          } products in this document`,
+          totalDocuments: docs.length,
+          processedDocuments: currentCompleted,
+        });
+      }
 
       return productsStep || [];
     });
@@ -239,21 +268,27 @@ export async function generateWerkbrief(
       `Parallel processing completed. Total fields extracted: ${fields.length}`
     );
 
-    onProgress?.({
-      type: "complete",
-      data: { fields },
-      currentStep: `Processing complete! Generated ${fields.length} werkbrief entries`,
-      totalDocuments: docs.length,
-      processedDocuments: docs.length,
-    });
+    if (!isProcessingComplete) {
+      safeProgress({
+        type: "complete",
+        data: { fields },
+        currentStep: `Processing complete! Generated ${fields.length} werkbrief entries`,
+        totalDocuments: docs.length,
+        processedDocuments: docs.length,
+      });
+      isProcessingComplete = true;
+    }
 
     return { fields };
   } catch (error) {
     console.error("Parallel processing failed:", error);
-    onProgress?.({
-      type: "error",
-      error: error instanceof Error ? error.message : "Processing failed",
-    });
+    if (!isProcessingComplete) {
+      safeProgress({
+        type: "error",
+        error: error instanceof Error ? error.message : "Processing failed",
+      });
+      isProcessingComplete = true;
+    }
     throw error;
   }
 }
@@ -299,7 +334,7 @@ export async function generateWerkbriefStep(text: string) {
         .map((r, i) => `(${i + 1}) ${r}`)
         .join("\n")}`,
       schema: WerkbriefSchema,
-      temperature: 0, 
+      temperature: 0,
     });
 
     return werkBriefObj.fields || [];

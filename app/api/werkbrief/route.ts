@@ -38,17 +38,33 @@ export async function POST(req: NextRequest) {
     if (streaming) {
       const encoder = new TextEncoder();
       let controller: ReadableStreamDefaultController;
+      let isControllerClosed = false;
 
       const stream = new ReadableStream({
         start(ctrl) {
           controller = ctrl;
         },
+        cancel() {
+          isControllerClosed = true;
+        },
       });
 
       // Function to send progress updates
       const sendProgress = (data: ProgressData) => {
-        const message = `data: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(encoder.encode(message));
+        if (isControllerClosed) {
+          console.warn(
+            "Attempted to send progress after controller was closed"
+          );
+          return;
+        }
+
+        try {
+          const message = `data: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+        } catch (error) {
+          console.error("Error sending progress:", error);
+          isControllerClosed = true;
+        }
       };
 
       // Start processing in background
@@ -60,14 +76,20 @@ export async function POST(req: NextRequest) {
             sendProgress
           );
 
-          // Send final result
-          sendProgress({ type: "complete", data: object });
-          controller.close();
+          // Send final result only if controller is still active
+          if (!isControllerClosed) {
+            sendProgress({ type: "complete", data: object });
+            isControllerClosed = true;
+            controller.close();
+          }
         } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "unknown error";
-          sendProgress({ type: "error", error: errorMessage });
-          controller.close();
+          if (!isControllerClosed) {
+            const errorMessage =
+              error instanceof Error ? error.message : "unknown error";
+            sendProgress({ type: "error", error: errorMessage });
+            isControllerClosed = true;
+            controller.close();
+          }
         }
       })();
 
