@@ -128,14 +128,14 @@ const TableRow = memo(
           <div className="flex items-center justify-center gap-1">
             <button
               onClick={handleInsertRow}
-              className="inline-flex items-center justify-center w-7 h-7 text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110"
+              className="inline-flex items-center justify-center w-10 h-10 text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110"
               title="Add row below"
             >
               <Plus className="w-3 h-3" />
             </button>
             <button
               onClick={handleDeleteRow}
-              className="inline-flex items-center justify-center w-7 h-7 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110"
+              className="inline-flex items-center justify-center w-10 h-10 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110"
               title="Delete row"
             >
               <Trash2 className="w-3 h-3" />
@@ -147,7 +147,7 @@ const TableRow = memo(
             type="textarea"
             value={field["Item Description"]}
             onChange={handleItemDescriptionChange}
-            className="w-full h-20 text-sm font-medium text-gray-900 dark:text-white leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 rounded px-3 py-2 resize-none"
+            className="w-full h-16 text-sm font-medium text-gray-900 dark:text-white leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 rounded px-3 py-2 resize-none"
             title={field["Item Description"]}
           />
         </td>
@@ -172,7 +172,8 @@ const TableRow = memo(
         <td className="px-2 py-3 text-center">
           <DebouncedInput
             type="number"
-            value={field.CTNS}
+            step="0.1"
+            value={Number(field.CTNS).toFixed(1)}
             onChange={handleCTNSChange}
             className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/20 px-2 py-2 rounded border border-orange-200 dark:border-orange-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
           />
@@ -180,7 +181,8 @@ const TableRow = memo(
         <td className="px-2 py-3 text-center">
           <DebouncedInput
             type="number"
-            value={field.STKS}
+            step="0.1"
+            value={Number(field.STKS).toFixed(1)}
             onChange={handleSTKSChange}
             className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-purple-50 dark:bg-purple-900/20 px-2 py-2 rounded border border-purple-200 dark:border-purple-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
           />
@@ -188,8 +190,8 @@ const TableRow = memo(
         <td className="px-2 py-3 text-center">
           <DebouncedInput
             type="number"
-            step="0.01"
-            value={field.BRUTO}
+            step="0.1"
+            value={Number(field.BRUTO).toFixed(1)}
             onChange={handleBRUTOChange}
             className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded border border-green-200 dark:border-green-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
           />
@@ -201,8 +203,8 @@ const TableRow = memo(
             </span>
             <DebouncedInput
               type="number"
-              step="0.01"
-              value={field.FOB}
+              step="0.1"
+              value={Number(field.FOB).toFixed(1)}
               onChange={handleFOBChange}
               className={`w-full pl-4 text-sm font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded border border-green-200 dark:border-green-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center ${
                 field.FOB === 0 ? "bg-red-100 dark:bg-red-900/20" : ""

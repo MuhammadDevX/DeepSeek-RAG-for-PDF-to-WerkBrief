@@ -4,14 +4,16 @@ import { Description } from "./_components/Description";
 import { WerkbriefProgress } from "./_components/WerkbriefProgress";
 import TableRow from "./_components/TableRow";
 import PDFUpload from "@/components/ui/pdf-upload";
+import DebouncedInput from "@/components/ui/debounced-input";
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
 import {
   formatSelectedFieldsForExcel,
   copyToClipboard,
+  downloadExcelFile,
 } from "@/lib/excel-formatter";
-import { Copy, Check, Undo2 } from "lucide-react";
+import { Copy, Check, Undo2, Download } from "lucide-react";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
 
@@ -50,6 +52,9 @@ const WerkBriefHome = () => {
   const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
   const [showUndoNotification, setShowUndoNotification] = useState(false);
 
+  // State for total bruto management
+  const [totalBruto, setTotalBruto] = useState<number>(0);
+
   // Initialize edited fields and checkboxes when result changes
   useEffect(() => {
     if (result?.fields) {
@@ -58,6 +63,68 @@ const WerkBriefHome = () => {
       setCheckedFields(result.fields.map(() => true));
     }
   }, [result]);
+
+  // Calculate total bruto whenever editedFields changes
+  useEffect(() => {
+    if (editedFields.length > 0) {
+      const total = editedFields.reduce((sum, field) => {
+        const bruto =
+          typeof field.BRUTO === "number"
+            ? field.BRUTO
+            : parseFloat(String(field.BRUTO)) || 0;
+        return sum + bruto;
+      }, 0);
+      setTotalBruto(Number(total.toFixed(1)));
+    } else {
+      setTotalBruto(0);
+    }
+  }, [editedFields]);
+
+  // Function to redistribute bruto values based on FOB proportions
+  const redistributeBrutoValues = useCallback(
+    (newTotalBruto: number) => {
+      if (editedFields.length === 0) return;
+
+      // Calculate total FOB
+      const totalFOB = editedFields.reduce((sum, field) => {
+        const fob =
+          typeof field.FOB === "number"
+            ? field.FOB
+            : parseFloat(String(field.FOB)) || 1;
+        return sum + fob;
+      }, 0);
+
+      if (totalFOB === 0) return;
+
+      // Redistribute bruto values
+      setEditedFields((prev) => {
+        return prev.map((field) => {
+          const fob =
+            typeof field.FOB === "number"
+              ? field.FOB
+              : parseFloat(String(field.FOB)) || 1;
+          const newBruto = (newTotalBruto * fob) / totalFOB;
+          return {
+            ...field,
+            BRUTO: Number(newBruto.toFixed(1)),
+          };
+        });
+      });
+    },
+    [editedFields]
+  );
+
+  // Handle total bruto change
+  const handleTotalBrutoChange = useCallback(
+    (value: string | number) => {
+      const newTotal =
+        typeof value === "number" ? value : parseFloat(String(value)) || 0;
+      const roundedTotal = Number(newTotal.toFixed(1));
+      setTotalBruto(roundedTotal);
+      redistributeBrutoValues(roundedTotal);
+    },
+    [redistributeBrutoValues]
+  );
 
   const onGenerate = async () => {
     setLoading(true);
@@ -170,36 +237,81 @@ const WerkBriefHome = () => {
     }
   };
 
-  const handleCheckboxChange = useCallback((index: number, checked: boolean) => {
-    setCheckedFields(prev => {
-      const newCheckedFields = [...prev];
-      newCheckedFields[index] = checked;
-      return newCheckedFields;
-    });
-  }, []);
+  const handleDownloadExcel = () => {
+    if (!editedFields || editedFields.length === 0) return;
 
-  const handleFieldChange = useCallback((
-    index: number,
-    fieldName: keyof Werkbrief["fields"][0],
-    value: string | number
-  ) => {
-    setEditedFields(prev => {
-      const newEditedFields = [...prev];
-      newEditedFields[index] = {
-        ...newEditedFields[index],
-        [fieldName]: value,
-      };
-      return newEditedFields;
-    });
-  }, []);
+    try {
+      downloadExcelFile(editedFields, checkedFields);
+    } catch (error) {
+      console.error("Failed to download Excel file:", error);
+    }
+  };
+
+  const handleCheckboxChange = useCallback(
+    (index: number, checked: boolean) => {
+      setCheckedFields((prev) => {
+        const newCheckedFields = [...prev];
+        newCheckedFields[index] = checked;
+        return newCheckedFields;
+      });
+    },
+    []
+  );
+
+  const handleFieldChange = useCallback(
+    (
+      index: number,
+      fieldName: keyof Werkbrief["fields"][0],
+      value: string | number
+    ) => {
+      // Convert value to appropriate type and apply precision
+      let processedValue = value;
+      if (
+        fieldName === "BRUTO" ||
+        fieldName === "FOB" ||
+        fieldName === "CTNS" ||
+        fieldName === "STKS"
+      ) {
+        const numValue =
+          typeof value === "number" ? value : parseFloat(String(value)) || 0;
+        processedValue = Number(numValue.toFixed(1));
+      }
+
+      setEditedFields((prev) => {
+        const newEditedFields = [...prev];
+        newEditedFields[index] = {
+          ...newEditedFields[index],
+          [fieldName]: processedValue,
+        };
+        return newEditedFields;
+      });
+
+      // If BRUTO was changed and it's not part of a redistribution, update total
+      if (fieldName === "BRUTO") {
+        // Use setTimeout to ensure state is updated before calculating total
+        setTimeout(() => {
+          const newTotal = editedFields.reduce((sum, field, i) => {
+            const bruto = i === index ? processedValue : field.BRUTO;
+            const numBruto =
+              typeof bruto === "number"
+                ? bruto
+                : parseFloat(String(bruto)) || 0;
+            return sum + numBruto;
+          }, 0);
+          setTotalBruto(Number(newTotal.toFixed(1)));
+        }, 0);
+      }
+    },
+    [editedFields]
+  );
 
   // Function to create a dummy row with placeholder values
   const createDummyRow = (): Werkbrief["fields"][0] => ({
     "Item Description": "New Product Description",
     "GOEDEREN OMSCHRIJVING": "NIEUWE GOEDEREN",
     "GOEDEREN CODE": "00000000",
-    CTNS: 1,
-    STKS: 1,
+    CTNS: 1.0,
+    STKS: 1.0,
     BRUTO: 1.0,
     FOB: 100.0,
     Confidence: "100%",
@@ -208,12 +320,12 @@ const WerkBriefHome = () => {
   // Function to insert a row at a specific index
   const insertRowAt = useCallback((index: number) => {
     const newRow = createDummyRow();
-    setEditedFields(prev => {
+    setEditedFields((prev) => {
       const newEditedFields = [...prev];
       newEditedFields.splice(index, 0, newRow);
       return newEditedFields;
     });
-    setCheckedFields(prev => {
+    setCheckedFields((prev) => {
       const newCheckedFields = [...prev];
       newCheckedFields.splice(index, 0, true);
       return newCheckedFields;
@@ -221,32 +333,35 @@ const WerkBriefHome = () => {
   }, []);
 
   // Function to delete a row
-  const deleteRow = useCallback((index: number) => {
-    const deletedRow: DeletedRow = {
-      data: editedFields[index],
-      checked: checkedFields[index],
-      index,
-      timestamp: Date.now(),
-    };
+  const deleteRow = useCallback(
+    (index: number) => {
+      const deletedRow: DeletedRow = {
+        data: editedFields[index],
+        checked: checkedFields[index],
+        index,
+        timestamp: Date.now(),
+      };
 
-    // Add to deleted rows for undo functionality
-    setDeletedRows((prev) => [...prev, deletedRow]);
+      // Add to deleted rows for undo functionality
+      setDeletedRows((prev) => [...prev, deletedRow]);
 
-    // Remove from current arrays
-    setEditedFields(prev => {
-      const newEditedFields = [...prev];
-      newEditedFields.splice(index, 1);
-      return newEditedFields;
-    });
-    setCheckedFields(prev => {
-      const newCheckedFields = [...prev];
-      newCheckedFields.splice(index, 1);
-      return newCheckedFields;
-    });
+      // Remove from current arrays
+      setEditedFields((prev) => {
+        const newEditedFields = [...prev];
+        newEditedFields.splice(index, 1);
+        return newEditedFields;
+      });
+      setCheckedFields((prev) => {
+        const newCheckedFields = [...prev];
+        newCheckedFields.splice(index, 1);
+        return newCheckedFields;
+      });
 
-    // Show undo notification
-    setShowUndoNotification(true);
-  }, [editedFields, checkedFields]);
+      // Show undo notification
+      setShowUndoNotification(true);
+    },
+    [editedFields, checkedFields]
+  );
 
   // Function to undo the last deletion
   const undoLastDeletion = () => {
@@ -330,24 +445,61 @@ const WerkBriefHome = () => {
                   processed successfully
                 </p>
               </div>
-              <Button
-                onClick={handleCopyToExcel}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600 transition-all duration-200"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-4 h-4 text-green-600" />
-                    <span className="text-green-600 font-medium">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    Copy to Excel
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleDownloadExcel}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600 transition-all duration-200"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Excel
+                </Button>
+                <Button
+                  onClick={handleCopyToExcel}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600 transition-all duration-200"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 text-green-600" />
+                      <span className="text-green-600 font-medium">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy to Excel
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Bruto Section */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Total Bruto Weight:
+                </span>
+                <div className="flex items-center gap-2">
+                  <DebouncedInput
+                    type="number"
+                    step="0.1"
+                    value={totalBruto}
+                    onChange={handleTotalBrutoChange}
+                    className="w-32 text-lg font-bold text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border-2 border-green-200 dark:border-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                    kg
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Edit to redistribute across all items based on FOB ratios
+              </div>
             </div>
           </div>
 
