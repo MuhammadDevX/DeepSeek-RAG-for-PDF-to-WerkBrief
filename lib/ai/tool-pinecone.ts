@@ -3,6 +3,8 @@ import { getEnvOrThrow } from "@/lib/utils";
 import { embed } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
+const PINECONE_THRESHOLD_VECTORS = 20
+
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? "" });
 
 export async function retrieveRelevantSnippets(
@@ -19,7 +21,7 @@ export async function retrieveRelevantSnippets(
 
   const result = await index.query({
     vector: embedding,
-    topK: topK + 15,
+    topK: topK + PINECONE_THRESHOLD_VECTORS,
     includeMetadata: true,
   });
 

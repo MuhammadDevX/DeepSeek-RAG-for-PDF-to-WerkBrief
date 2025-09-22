@@ -54,6 +54,8 @@ const WerkBriefHome = () => {
 
   // State for total bruto management
   const [totalBruto, setTotalBruto] = useState<number>(0);
+  // Flag to prevent feedback loop during redistribution
+  const [isRedistributing, setIsRedistributing] = useState<boolean>(false);
 
   // Initialize edited fields and checkboxes when result changes
   useEffect(() => {
@@ -85,6 +87,9 @@ const WerkBriefHome = () => {
     (newTotalBruto: number) => {
       if (editedFields.length === 0) return;
 
+      // Set redistribution flag to prevent feedback loop
+      setIsRedistributing(true);
+
       // Calculate total FOB
       const totalFOB = editedFields.reduce((sum, field) => {
         const fob =
@@ -94,22 +99,43 @@ const WerkBriefHome = () => {
         return sum + fob;
       }, 0);
 
-      if (totalFOB === 0) return;
+      if (totalFOB === 0) {
+        setIsRedistributing(false);
+        return;
+      }
 
-      // Redistribute bruto values
-      setEditedFields((prev) => {
-        return prev.map((field) => {
-          const fob =
-            typeof field.FOB === "number"
-              ? field.FOB
-              : parseFloat(String(field.FOB)) || 1;
-          const newBruto = (newTotalBruto * fob) / totalFOB;
-          return {
-            ...field,
-            BRUTO: Number(newBruto.toFixed(1)),
-          };
-        });
+      // Calculate redistributed values with proper rounding
+      const redistributedValues = editedFields.map((field) => {
+        const fob =
+          typeof field.FOB === "number"
+            ? field.FOB
+            : parseFloat(String(field.FOB)) || 1;
+        const newBruto = (newTotalBruto * fob) / totalFOB;
+        return Number(newBruto.toFixed(1));
       });
+
+      // Calculate the sum of redistributed values
+      const redistributedSum = redistributedValues.reduce((sum, value) => sum + value, 0);
+      const roundedSum = Number(redistributedSum.toFixed(1));
+      
+      // Calculate rounding difference and add it to the first element
+      const difference = Number((newTotalBruto - roundedSum).toFixed(1));
+      if (difference !== 0 && redistributedValues.length > 0) {
+        redistributedValues[0] = Number((redistributedValues[0] + difference).toFixed(1));
+      }
+
+      // Update the fields with redistributed values
+      setEditedFields((prev) => {
+        return prev.map((field, index) => ({
+          ...field,
+          BRUTO: redistributedValues[index],
+        }));
+      });
+
+      // Reset redistribution flag after a brief delay
+      setTimeout(() => {
+        setIsRedistributing(false);
+      }, 50);
     },
     [editedFields]
   );
@@ -287,7 +313,7 @@ const WerkBriefHome = () => {
       });
 
       // If BRUTO was changed and it's not part of a redistribution, update total
-      if (fieldName === "BRUTO") {
+      if (fieldName === "BRUTO" && !isRedistributing) {
         // Use setTimeout to ensure state is updated before calculating total
         setTimeout(() => {
           const newTotal = editedFields.reduce((sum, field, i) => {
@@ -302,7 +328,7 @@ const WerkBriefHome = () => {
         }, 0);
       }
     },
-    [editedFields]
+    [editedFields, isRedistributing]
   );
 
   // Function to create a dummy row with placeholder values
