@@ -1,7 +1,8 @@
-'use client'
+"use client";
 import React, { useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import UploadExcel from "./_components/UploadExcel";
+import PineconeProgress from "./_components/PineconeProgress";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, Upload, Database } from "lucide-react";
 
@@ -27,64 +28,171 @@ interface UploadResult {
   success: boolean;
   message: string;
   uploadedCount?: number;
+  failedCount?: number;
   totalRows?: number;
   columns?: string[];
   error?: string;
+}
+
+interface ProgressData {
+  totalVectors: number;
+  processedVectors: number;
+  successfulVectors: number;
+  failedVectors: number;
+  currentBatch: number;
+  totalBatches: number;
+  status:
+    | "processing"
+    | "embedding"
+    | "upserting"
+    | "retrying"
+    | "complete"
+    | "error";
+  message?: string;
 }
 
 export default function ExpandPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [excelData, setExcelData] = useState<ExcelData | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [validationResult, setValidationResult] =
+    useState<ValidationResult | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [useStreaming, setUseStreaming] = useState(true);
 
-  const handleFileSelect = (file: File | null, parsedExcelData?: ExcelData, validation?: ValidationResult) => {
+  const handleFileSelect = (
+    file: File | null,
+    parsedExcelData?: ExcelData,
+    validation?: ValidationResult
+  ) => {
     setSelectedFile(file);
     setExcelData(parsedExcelData || null);
     setValidationResult(validation || null);
     setUploadResult(null);
   };
 
-
   const handleUpload = async () => {
     if (!excelData || !validationResult?.isValid) return;
 
     setIsUploading(true);
     setUploadResult(null);
+    setProgress(null);
 
     try {
-      const response = await fetch('/api/expand-knowledgebase', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          excelData: excelData
-        }),
-      });
+      if (useStreaming) {
+        // Use streaming for real-time progress updates
+        const response = await fetch("/api/expand-knowledgebase", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            excelData: excelData,
+            streaming: true,
+          }),
+        });
 
-      const result = await response.json();
-      setUploadResult(result);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      if (result.success) {
-        // Reset form after successful upload
-        setTimeout(() => {
-          setSelectedFile(null);
-          setExcelData(null);
-          setValidationResult(null);
-          setUploadResult(null);
-          if (document.querySelector('input[type="file"]')) {
-            (document.querySelector('input[type="file"]') as HTMLInputElement).value = '';
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error("Failed to get response reader");
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (line.trim() === "" || !line.startsWith("data: ")) continue;
+
+              try {
+                const data = JSON.parse(line.slice(6)); // Remove 'data: ' prefix
+
+                if (data.type === "progress") {
+                  setProgress(data.data);
+                } else if (data.type === "complete") {
+                  setUploadResult(data.data);
+                  setProgress(null);
+                  if (data.data.success) {
+                    // Reset form after successful upload
+                    setTimeout(() => {
+                      setSelectedFile(null);
+                      setExcelData(null);
+                      setValidationResult(null);
+                      setUploadResult(null);
+                      if (document.querySelector('input[type="file"]')) {
+                        (
+                          document.querySelector(
+                            'input[type="file"]'
+                          ) as HTMLInputElement
+                        ).value = "";
+                      }
+                    }, 5000);
+                  }
+                } else if (data.type === "error") {
+                  setUploadResult(data.data);
+                  setProgress(null);
+                }
+              } catch (parseError) {
+                console.error("Error parsing SSE data:", parseError);
+              }
+            }
           }
-        }, 3000);
+        } finally {
+          reader.releaseLock();
+        }
+      } else {
+        // Use regular upload without progress tracking
+        const response = await fetch("/api/expand-knowledgebase", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            excelData: excelData,
+            streaming: false,
+          }),
+        });
+
+        const result = await response.json();
+        setUploadResult(result);
+
+        if (result.success) {
+          // Reset form after successful upload
+          setTimeout(() => {
+            setSelectedFile(null);
+            setExcelData(null);
+            setValidationResult(null);
+            setUploadResult(null);
+            if (document.querySelector('input[type="file"]')) {
+              (
+                document.querySelector('input[type="file"]') as HTMLInputElement
+              ).value = "";
+            }
+          }, 3000);
+        }
       }
     } catch (error) {
+      console.error("Upload error:", error);
       setUploadResult({
         success: false,
-        message: 'Failed to upload. Please try again.',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        message: "Failed to upload. Please try again.",
+        error: error instanceof Error ? error.message : "Unknown error",
       });
+      setProgress(null);
     } finally {
       setIsUploading(false);
     }
@@ -103,8 +211,9 @@ export default function ExpandPage() {
             Expand Knowledge Base
           </h1>
           <p className="text-lg text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto">
-            Upload an Excel file to add new items to your Pinecone knowledge base.
-            The file must contain the required columns for proper processing.
+            Upload an Excel file to add new items to your Pinecone knowledge
+            base. The file must contain the required columns for proper
+            processing.
           </p>
         </motion.div>
 
@@ -134,8 +243,21 @@ export default function ExpandPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex justify-center"
+              className="flex flex-col items-center gap-4"
             >
+              {/* Streaming Toggle */}
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useStreaming}
+                    onChange={(e) => setUseStreaming(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <span>Real-time progress tracking</span>
+                </label>
+              </div>
+
               <Button
                 onClick={handleUpload}
                 disabled={isUploading || !validationResult.isValid}
@@ -145,7 +267,11 @@ export default function ExpandPage() {
                   <>
                     <motion.div
                       animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
                       className="w-5 h-5 mr-2"
                     >
                       <Upload className="w-5 h-5" />
@@ -162,15 +288,23 @@ export default function ExpandPage() {
             </motion.div>
           )}
 
+          {/* Progress Component */}
+          <AnimatePresence>
+            {progress && isUploading && (
+              <PineconeProgress progress={progress} isUploading={isUploading} />
+            )}
+          </AnimatePresence>
+
           {/* Upload Result */}
           {uploadResult && (
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              className={`p-6 rounded-2xl shadow-lg ${uploadResult.success
-                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                }`}
+              className={`p-6 rounded-2xl shadow-lg ${
+                uploadResult.success
+                  ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+              }`}
             >
               <div className="flex items-start gap-4">
                 {uploadResult.success ? (
@@ -179,25 +313,69 @@ export default function ExpandPage() {
                   <AlertCircle className="w-6 h-6 text-red-500 mt-1 flex-shrink-0" />
                 )}
                 <div className="flex-1">
-                  <h3 className={`text-lg font-semibold mb-2 ${uploadResult.success
-                    ? 'text-green-800 dark:text-green-200'
-                    : 'text-red-800 dark:text-red-200'
-                    }`}>
-                    {uploadResult.success ? 'Upload Successful!' : 'Upload Failed'}
+                  <h3
+                    className={`text-lg font-semibold mb-2 ${
+                      uploadResult.success
+                        ? "text-green-800 dark:text-green-200"
+                        : "text-red-800 dark:text-red-200"
+                    }`}
+                  >
+                    {uploadResult.success
+                      ? "Upload Successful!"
+                      : "Upload Failed"}
                   </h3>
-                  <p className={`text-sm ${uploadResult.success
-                    ? 'text-green-700 dark:text-green-300'
-                    : 'text-red-700 dark:text-red-300'
-                    }`}>
+                  <p
+                    className={`text-sm ${
+                      uploadResult.success
+                        ? "text-green-700 dark:text-green-300"
+                        : "text-red-700 dark:text-red-300"
+                    }`}
+                  >
                     {uploadResult.message}
                   </p>
                   {uploadResult.success && uploadResult.uploadedCount && (
                     <div className="mt-3 text-sm text-green-600 dark:text-green-400">
-                      <p>• Uploaded {uploadResult.uploadedCount} documents to Pinecone</p>
-                      <p>• Processed {uploadResult.totalRows} rows from Excel file</p>
-                      <p>• Found {uploadResult.columns?.length} columns in the file</p>
+                      <p>
+                        • Successfully uploaded {uploadResult.uploadedCount}{" "}
+                        documents to Pinecone
+                      </p>
+                      {uploadResult.failedCount &&
+                        uploadResult.failedCount > 0 && (
+                          <p>
+                            • {uploadResult.failedCount} documents failed to
+                            upload
+                          </p>
+                        )}
+                      <p>
+                        • Processed {uploadResult.totalRows} rows from Excel
+                        file
+                      </p>
+                      <p>
+                        • Found {uploadResult.columns?.length} columns in the
+                        file
+                      </p>
                     </div>
                   )}
+                  {!uploadResult.success &&
+                    uploadResult.uploadedCount &&
+                    uploadResult.uploadedCount > 0 && (
+                      <div className="mt-3 text-sm text-yellow-600 dark:text-yellow-400">
+                        <p>
+                          • Partially successful: {uploadResult.uploadedCount}{" "}
+                          documents uploaded
+                        </p>
+                        {uploadResult.failedCount && (
+                          <p>
+                            • {uploadResult.failedCount} documents failed to
+                            upload
+                          </p>
+                        )}
+                        <p>
+                          • Total processed: {uploadResult.totalRows} rows from
+                          Excel file
+                        </p>
+                      </div>
+                    )}
                   {uploadResult.error && (
                     <p className="mt-2 text-sm text-red-600 dark:text-red-400">
                       Error: {uploadResult.error}
@@ -216,12 +394,21 @@ export default function ExpandPage() {
             <div className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
               <p>Your Excel file must contain the following columns:</p>
               <ul className="list-disc list-inside space-y-1 ml-4">
-                <li><strong>Item Name</strong> - Name of the product/item</li>
-                <li><strong>Goederen Omschrijving</strong> - Description of the goods in Dutch</li>
-                <li><strong>Goederen Code (HS Code)</strong> - HS code for the product</li>
+                <li>
+                  <strong>Item Name</strong> - Name of the product/item
+                </li>
+                <li>
+                  <strong>Goederen Omschrijving</strong> - Description of the
+                  goods in Dutch
+                </li>
+                <li>
+                  <strong>Goederen Code (HS Code)</strong> - HS code for the
+                  product
+                </li>
               </ul>
               <p className="mt-3 text-xs">
-                Additional columns are allowed and will be preserved in the metadata.
+                Additional columns are allowed and will be preserved in the
+                metadata.
               </p>
             </div>
           </div>

@@ -22,7 +22,6 @@ export function formatForExcel(werkbrief: Werkbrief): string {
   werkbrief.fields.forEach((field, index) => {
     const row = [
       (index + 1).toString(),
-      field["Item Description"],
       field["GOEDEREN OMSCHRIJVING"],
       field["GOEDEREN CODE"],
       field.CTNS.toString(),
@@ -44,7 +43,6 @@ export function formatSelectedFieldsForExcel(
   // Create Excel-compatible format with tab-separated values
   const headers = [
     "Number",
-    "Item Description",
     "GOEDEREN OMSCHRIJVING",
     "GOEDEREN CODE",
     "CTNS",
@@ -62,7 +60,6 @@ export function formatSelectedFieldsForExcel(
     if (checkedFields[index]) {
       const row = [
         rowNumber.toString(),
-        field["Item Description"],
         field["GOEDEREN OMSCHRIJVING"],
         field["GOEDEREN CODE"],
         field.CTNS.toString(),
@@ -113,7 +110,6 @@ export function downloadExcelFile(
   // Define type for export data
   type ExportDataRow = {
     Number: number;
-    "Item Description": string;
     "GOEDEREN OMSCHRIJVING": string;
     "GOEDEREN CODE": string;
     CTNS: number;
@@ -131,7 +127,6 @@ export function downloadExcelFile(
     if (checkedFields[index]) {
       exportData.push({
         Number: rowNumber,
-        "Item Description": field["Item Description"],
         "GOEDEREN OMSCHRIJVING": field["GOEDEREN OMSCHRIJVING"],
         "GOEDEREN CODE": field["GOEDEREN CODE"],
         CTNS: field.CTNS,
@@ -150,7 +145,6 @@ export function downloadExcelFile(
   // Auto-size columns for better readability
   const columnWidths = [
     { wch: 8 },  // Number
-    { wch: 30 }, // Item Description
     { wch: 25 }, // GOEDEREN OMSCHRIJVING
     { wch: 15 }, // GOEDEREN CODE
     { wch: 8 },  // CTNS

@@ -29,7 +29,7 @@ interface ProgressData {
 }
 
 const WerkBriefHome = () => {
-  const [description, setDescription] = useState("");
+  // const [description, setDescription] = useState("");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Werkbrief | null>(null);
@@ -83,6 +83,7 @@ const WerkBriefHome = () => {
   }, [editedFields]);
 
   // Function to redistribute bruto values based on FOB proportions
+  // Ensures that no item gets a weight below 0.1 kg, even with very small FOB values
   const redistributeBrutoValues = useCallback(
     (newTotalBruto: number) => {
       if (editedFields.length === 0) return;
@@ -104,24 +105,83 @@ const WerkBriefHome = () => {
         return;
       }
 
-      // Calculate redistributed values with proper rounding
+      // Calculate redistributed values with proper rounding and minimum weight constraint
       const redistributedValues = editedFields.map((field) => {
         const fob =
           typeof field.FOB === "number"
             ? field.FOB
             : parseFloat(String(field.FOB)) || 1;
         const newBruto = (newTotalBruto * fob) / totalFOB;
-        return Number(newBruto.toFixed(1));
+        // Apply minimum weight constraint: ensure weight is at least 0.1 kg
+        const constrainedBruto = Math.max(newBruto, 0.1);
+        return Number(constrainedBruto.toFixed(1));
       });
 
+      // Check if the sum exceeds the target due to minimum constraints
+      let currentSum = redistributedValues.reduce(
+        (sum, value) => sum + value,
+        0
+      );
+
+      // If we exceeded the target due to minimum constraints, we need to redistribute the excess
+      if (currentSum > newTotalBruto) {
+        const excess = Number((currentSum - newTotalBruto).toFixed(1));
+
+        // Find items that are above the minimum and can be reduced
+        const adjustableIndices = redistributedValues
+          .map((value, index) => ({ value, index }))
+          .filter((item) => item.value > 0.1)
+          .sort((a, b) => b.value - a.value); // Sort by weight descending
+
+        // Distribute the excess reduction across adjustable items
+        let remainingExcess = excess;
+        for (const item of adjustableIndices) {
+          if (remainingExcess <= 0) break;
+
+          const maxReduction = Math.min(
+            remainingExcess,
+            Number((item.value - 0.1).toFixed(1))
+          );
+
+          if (maxReduction > 0) {
+            redistributedValues[item.index] = Number(
+              (redistributedValues[item.index] - maxReduction).toFixed(1)
+            );
+            remainingExcess = Number(
+              (remainingExcess - maxReduction).toFixed(1)
+            );
+          }
+        }
+
+        // Recalculate the sum after adjustments
+        currentSum = redistributedValues.reduce((sum, value) => sum + value, 0);
+      }
+
       // Calculate the sum of redistributed values
-      const redistributedSum = redistributedValues.reduce((sum, value) => sum + value, 0);
+      const redistributedSum = currentSum;
       const roundedSum = Number(redistributedSum.toFixed(1));
-      
+
       // Calculate rounding difference and add it to the first element
       const difference = Number((newTotalBruto - roundedSum).toFixed(1));
       if (difference !== 0 && redistributedValues.length > 0) {
-        redistributedValues[0] = Number((redistributedValues[0] + difference).toFixed(1));
+        // Find the first item that can accommodate the difference (above minimum if reducing)
+        let adjustmentIndex = 0;
+        if (difference < 0) {
+          // If we need to reduce, find an item that won't go below minimum
+          adjustmentIndex = redistributedValues.findIndex(
+            (value) => value + difference >= 0.1
+          );
+          if (adjustmentIndex === -1) adjustmentIndex = 0; // Fallback to first item
+        }
+
+        redistributedValues[adjustmentIndex] = Number(
+          (redistributedValues[adjustmentIndex] + difference).toFixed(1)
+        );
+
+        // Ensure the adjusted value doesn't go below minimum
+        if (redistributedValues[adjustmentIndex] < 0.1) {
+          redistributedValues[adjustmentIndex] = 0.1;
+        }
       }
 
       // Update the fields with redistributed values
@@ -167,7 +227,7 @@ const WerkBriefHome = () => {
 
     try {
       const formData = new FormData();
-      formData.append("description", description);
+      formData.append("description", "Generate a werkbrief");
       if (useStreaming) {
         formData.append("streaming", "true");
       }
@@ -413,19 +473,16 @@ const WerkBriefHome = () => {
   return (
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-7xl mx-auto">
       <Description />
-      <textarea
+      {/* <textarea
         className="w-full min-h-32 p-3 border rounded-md bg-transparent"
         placeholder="Beschrijf de rol, verantwoordelijkheden, sector, senioriteit, etc."
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-      />
+      /> */}
       <div className="flex flex-col items-center align-middle justify-center gap-4 w-full">
         <PDFUpload onFileSelect={setPdfFile} selectedFile={pdfFile} />
         <div className="flex flex-col items-center align-middle justify-center gap-3">
-          <Button
-            onClick={onGenerate}
-            disabled={loading || !description.trim()}
-          >
+          <Button onClick={onGenerate} disabled={loading || !pdfFile}>
             {loading ? "Generating..." : "Generate Werkbrief"}
           </Button>
 
