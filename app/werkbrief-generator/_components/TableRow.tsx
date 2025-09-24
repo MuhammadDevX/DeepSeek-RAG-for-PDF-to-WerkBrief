@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { WerkbriefSchema } from "@/lib/ai/schema";
 import { z } from "zod";
 import DebouncedInput from "@/components/ui/debounced-input";
+import styles from "../styles.module.css";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
 
@@ -102,61 +103,65 @@ const TableRow = memo(
 
     return (
       <tr
-        className={`group transition-all duration-150 hover:bg-blue-50 dark:hover:bg-gray-800/50 ${
+        className={`${
+          styles.tableRow
+        } group transition-all duration-200 hover:bg-blue-50/80 dark:hover:bg-gray-800/70 hover:shadow-sm ${
           index % 2 === 0
             ? "bg-white dark:bg-gray-900"
             : "bg-gray-50/50 dark:bg-gray-800/20"
-        }`}
+        } hover:scale-[1.002] hover:z-10 relative`}
       >
-        <td className="px-2 py-3 text-center">
+        <td className="px-2 py-3 text-center sticky left-0 bg-inherit z-20">
           <input
             type="checkbox"
             checked={isChecked}
             onChange={handleCheckboxChange}
-            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 transition-all duration-200 hover:scale-110"
             title="Select for export to Excel"
           />
         </td>
-        <td className="px-2 py-3 text-sm">
+        <td className="px-2 py-3 text-sm sticky left-12 bg-inherit z-20">
           <div className="flex items-center justify-center">
-            <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg flex items-center justify-center font-semibold text-xs">
+            <span className="w-6 h-6 bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/40 text-blue-700 dark:text-blue-300 rounded-lg flex items-center justify-center font-semibold text-xs shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
               {index + 1}
             </span>
           </div>
         </td>
-        <td className="px-2 py-3 text-center">
-          <div className="flex items-center justify-center gap-1">
+        <td className="px-2 py-3 text-center sticky left-22 bg-inherit z-20">
+          <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity duration-200">
             <button
               onClick={handleInsertRow}
-              className="inline-flex items-center justify-center w-4 h-4 text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110"
+              className={`${styles.actionButton} inline-flex items-center justify-center w-7 h-7 text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110 shadow-sm hover:shadow-md`}
               title="Add row below"
             >
               <Plus className="w-4 h-4" />
             </button>
             <button
               onClick={handleDeleteRow}
-              className="inline-flex items-center justify-center w-10 h-10 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110"
+              className={`${styles.actionButton} inline-flex items-center justify-center w-7 h-7 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all duration-200 opacity-70 hover:opacity-100 hover:scale-110 shadow-sm hover:shadow-md`}
               title="Delete row"
             >
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </td>
-        <td className="px-3 py-3">
-          <DebouncedInput
-            type="textarea"
-            value={field["Item Description"]}
-            onChange={handleItemDescriptionChange}
-            className="w-full h-16 text-sm font-medium text-gray-900 dark:text-white leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 rounded px-3 py-2 resize-none"
-            title={field["Item Description"]}
-          />
+        <td className="px-3 py-3 relative">
+          <div className="relative group">
+            <DebouncedInput
+              type="textarea"
+              value={field["Item Description"]}
+              onChange={handleItemDescriptionChange}
+              className={`${styles.focusInput} w-full h-16 text-sm font-medium text-gray-900 dark:text-white leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg px-3 py-2 resize-none transition-all duration-200 group-hover:border-blue-300 group-hover:shadow-sm`}
+              title={field["Item Description"]}
+            />
+          </div>
         </td>
         <td className="px-3 py-3">
           <DebouncedInput
             type="text"
             value={field["GOEDEREN OMSCHRIJVING"]}
             onChange={handleGoederenOmschrijvingChange}
-            className="w-full text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 rounded px-3 py-2"
+            className="w-full text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg px-3 py-2 transition-all duration-200 group-hover:border-blue-300 group-hover:shadow-sm"
             title={field["GOEDEREN OMSCHRIJVING"]}
           />
         </td>
@@ -165,7 +170,7 @@ const TableRow = memo(
             type="text"
             value={field["GOEDEREN CODE"]}
             onChange={handleGoederenCodeChange}
-            className="w-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 group-hover:bg-gray-50 dark:group-hover:bg-gray-600 group-hover:shadow-sm"
             title={field["GOEDEREN CODE"]}
           />
         </td>
@@ -175,7 +180,7 @@ const TableRow = memo(
             step="1"
             value={Number(field.CTNS).toFixed(0)}
             onChange={handleCTNSChange}
-            className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/20 px-2 py-2 rounded border border-orange-200 dark:border-orange-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
+            className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/20 px-2 py-2 rounded-lg border border-orange-200 dark:border-orange-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-all duration-200 group-hover:bg-orange-100 dark:group-hover:bg-orange-900/30 group-hover:shadow-sm"
           />
         </td>
         <td className="px-2 py-3 text-center">
@@ -184,7 +189,7 @@ const TableRow = memo(
             step="1"
             value={Number(field.STKS).toFixed(0)}
             onChange={handleSTKSChange}
-            className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-purple-50 dark:bg-purple-900/20 px-2 py-2 rounded border border-purple-200 dark:border-purple-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
+            className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-purple-50 dark:bg-purple-900/20 px-2 py-2 rounded-lg border border-purple-200 dark:border-purple-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-all duration-200 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 group-hover:shadow-sm"
           />
         </td>
         <td className="px-2 py-3 text-center">
@@ -193,12 +198,12 @@ const TableRow = memo(
             step="0.1"
             value={Number(field.BRUTO).toFixed(1)}
             onChange={handleBRUTOChange}
-            className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded border border-green-200 dark:border-green-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
+            className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded-lg border border-green-200 dark:border-green-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-all duration-200 group-hover:bg-green-100 dark:group-hover:bg-green-900/30 group-hover:shadow-sm"
           />
         </td>
         <td className="px-2 py-3 text-center">
           <div className="relative">
-            <span className="absolute left-1 top-1/2 transform -translate-y-1/2 text-xs font-bold text-green-700 dark:text-green-400">
+            <span className="absolute left-1 top-1/2 transform -translate-y-1/2 text-xs font-bold text-green-700 dark:text-green-400 z-10">
               $
             </span>
             <DebouncedInput
@@ -206,15 +211,17 @@ const TableRow = memo(
               step="0.01"
               value={Number(field.FOB).toFixed(2)}
               onChange={handleFOBChange}
-              className={`w-full pl-4 text-sm font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded border border-green-200 dark:border-green-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center ${
-                field.FOB === 0 ? "bg-red-100 dark:bg-red-900/20" : ""
+              className={`w-full pl-4 text-sm font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded-lg border border-green-200 dark:border-green-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-all duration-200 group-hover:shadow-sm ${
+                field.FOB === 0
+                  ? "bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700 group-hover:bg-red-200 dark:group-hover:bg-red-900/30"
+                  : "group-hover:bg-green-100 dark:group-hover:bg-green-900/30"
               }`}
             />
           </div>
         </td>
         <td className="px-2 py-3 text-center">
           <div
-            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-all duration-200 group-hover:shadow-sm group-hover:scale-105 ${
               confidence > 80
                 ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700"
                 : confidence > 60
