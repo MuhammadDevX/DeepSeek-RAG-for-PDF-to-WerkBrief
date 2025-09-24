@@ -74,7 +74,7 @@ const WerkBriefHome = () => {
   // New UX states for better table management
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(100); // Show more items by default
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Werkbrief["fields"][0] | null;
     direction: "asc" | "desc";
@@ -90,9 +90,11 @@ const WerkBriefHome = () => {
       setEditedFields(result.fields);
       // Set all checkboxes to true by default
       setCheckedFields(result.fields.map(() => true));
-      // Reset pagination when new data arrives
+      // Reset pagination when new data arrives and show all items by default
       setCurrentPage(1);
       setSearchTerm("");
+      // Set itemsPerPage to show all items by default
+      setItemsPerPage(result.fields.length);
     }
   }, [result]);
 
