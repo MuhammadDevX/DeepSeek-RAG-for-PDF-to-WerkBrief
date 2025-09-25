@@ -1,9 +1,12 @@
 "use client";
 import { motion } from "motion/react";
-import { FeaturesBentoGrid } from './_components/FeaturesBentoGrid'
+import { FeaturesBentoGrid } from "./_components/FeaturesBentoGrid";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { SearchGoederenModal } from "@/components/SearchGoederenModal";
+import { Search } from "lucide-react";
+import { useState, useEffect } from "react";
 export default function HeroSectionOne() {
   return (
     <div className="relative my-10 flex flex-col items-center justify-center">
@@ -50,8 +53,8 @@ export default function HeroSectionOne() {
           }}
           className="relative z-10 mx-auto max-w-xl py-4 text-center text-lg font-normal text-neutral-600 dark:text-neutral-400"
         >
-
-          Create instant, accurate werkbriefs from pdf invoices. Have a 24/7 working model to create workbriefs in one click.
+          Create instant, accurate werkbriefs from pdf invoices. Have a 24/7
+          working model to create workbriefs in one click.
         </motion.p>
         <Link href={"/sign-in"}>
           <motion.div
@@ -70,7 +73,6 @@ export default function HeroSectionOne() {
             <button className="w-60 transform rounded-lg bg-black px-6 py-2 font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200">
               Explore Now
             </button>
-
           </motion.div>
         </Link>
         <motion.div
@@ -100,41 +102,87 @@ export default function HeroSectionOne() {
         </motion.div>
       </div>
       <FeaturesBentoGrid />
-    </div >
+    </div>
   );
 }
 
 export const Navbar = () => {
-  const { user } = useUser()
+  const { user } = useUser();
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // Add keyboard shortcut to open search modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "k") {
+        event.preventDefault();
+        if (user) {
+          // Only open if user is logged in
+          setIsSearchModalOpen(true);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [user]);
+
   return (
-    <nav className="flex w-full items-center justify-between border-t border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
-      <Link href={"/"}>
-        <div className="flex items-center gap-2">
-          <div className="size-7 rounded-full bg-gradient-to-br from-violet-500 to-pink-500" />
-          <h1 className="text-base font-bold md:text-2xl">ship2aruba</h1>
-        </div>
-      </Link>
-      {
-        !user ?
+    <>
+      <nav className="flex w-full items-center justify-between border-t border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
+        <Link href={"/"}>
+          <div className="flex items-center gap-2">
+            <div className="size-7 rounded-full bg-gradient-to-br from-violet-500 to-pink-500" />
+            <h1 className="text-base font-bold md:text-2xl">ship2aruba</h1>
+          </div>
+        </Link>
+        {!user ? (
           <Link href={"/sign-in"}>
             <button className="w-24 transform rounded-lg bg-black px-6 py-2 font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-gray-800 md:w-32 dark:bg-white dark:text-black dark:hover:bg-gray-200">
               Login
             </button>
           </Link>
-          :
-          <div className="flex gap-5 items-center">
+        ) : (
+          <div className="flex gap-2 lg:gap-3 items-center flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => setIsSearchModalOpen(true)}
+              className="flex items-center gap-2 text-xs sm:text-sm"
+              size="sm"
+              title="Search Goederen Code (Ctrl/Cmd + K)"
+            >
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Search Goederen Code</span>
+              <span className="sm:hidden">Search</span>
+              <span className="hidden lg:inline-flex items-center gap-1 ml-2 text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                <span>⌘K</span>
+              </span>
+            </Button>
             <Link href={"/werkbrief-generator"}>
-              <Button>Werkbrief creator</Button>
-            </Link >
+              <Button size="sm" className="text-xs sm:text-sm">
+                Werkbrief creator
+              </Button>
+            </Link>
             <Link href={"/expand"}>
-              <Button>Expand Knowledgebase</Button>
-            </Link >
-            {user.publicMetadata.role === "admin" && <Link href={"/admin"}>
-              <Button>Admin Panel</Button>
-            </Link >}
+              <Button size="sm" className="text-xs sm:text-sm">
+                Expand KB
+              </Button>
+            </Link>
+            {user.publicMetadata.role === "admin" && (
+              <Link href={"/admin"}>
+                <Button size="sm" className="text-xs sm:text-sm">
+                  Admin
+                </Button>
+              </Link>
+            )}
             <UserButton />
           </div>
-      }
-    </nav>
+        )}
+      </nav>
+
+      <SearchGoederenModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+      />
+    </>
   );
 };
