@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file size (e.g., max 100MB)
-    const maxSize = 100 * 1024 * 1024; // 100MB
+    // Validate file size (max 500MB to allow larger files)
+    const maxSize = 500 * 1024 * 1024; // 500MB
     if (fileSize && fileSize > maxSize) {
       return NextResponse.json(
-        { error: "File size too large. Maximum 100MB allowed." },
+        { error: "File size too large. Maximum 500MB allowed." },
         { status: 400 }
       );
     }
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     });
 
     const presignedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 600, // URL expires in 10 minutes
+      expiresIn: 3600, // URL expires in 1 hour for large files
     });
 
     // Return both the presigned URL and the file key

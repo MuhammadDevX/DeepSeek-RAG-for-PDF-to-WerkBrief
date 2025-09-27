@@ -33,16 +33,10 @@ export const UploadProgressBar = React.memo(
   ({ uploadProgress, isVisible }: UploadProgressBarProps) => {
     if (!isVisible || !uploadProgress) return null;
 
-    const isChunkedUpload = uploadProgress.totalBytes > 10 * 1024 * 1024; // 10MB threshold
-
     return (
       <div className="w-full max-w-md">
         <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-          <span>
-            {isChunkedUpload
-              ? "Uploading (chunked)..."
-              : "Uploading to cloud storage..."}
-          </span>
+          <span>Uploading to cloud storage...</span>
           <span>{Math.round(uploadProgress.percentage)}%</span>
         </div>
 
@@ -69,12 +63,6 @@ export const UploadProgressBar = React.memo(
               ~{formatTime(uploadProgress.remainingTime)} remaining
             </div>
           )}
-
-        {isChunkedUpload && (
-          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 text-center">
-            Using optimized chunked upload for faster speeds
-          </div>
-        )}
       </div>
     );
   }

@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Werkbrief Generator",
-  description: "Werkbrief Generation by ship2aruba",
+  description: "Werkbrief Generation by quickdeclare",
 };
 
 export default function RootLayout({

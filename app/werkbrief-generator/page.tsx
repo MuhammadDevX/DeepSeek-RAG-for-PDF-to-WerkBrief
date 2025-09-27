@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Description } from "./_components/Description";
 import { WerkbriefProgress } from "./_components/WerkbriefProgress";
 import { FileUploadSection } from "./_components/FileUploadSection";
@@ -103,7 +103,32 @@ const WerkBriefHome = () => {
     setEditedFields,
   });
 
-  // Pagination logic
+  // Memoize expensive calculations
+  const totalFilteredItems = useMemo(
+    () => filteredAndSortedFields.length,
+    [filteredAndSortedFields.length]
+  );
+  const selectedCount = useMemo(
+    () => checkedFields.filter(Boolean).length,
+    [checkedFields]
+  );
+  const hasTableData = useMemo(
+    () =>
+      (result && result.fields && result.fields.length > 0) ||
+      editedFields.length > 0,
+    [result, editedFields.length]
+  );
+
+  // Memoize table expansion classes to prevent recalculation
+  const tableContainerClasses = useMemo(
+    () =>
+      `w-full transition-all duration-300 ${
+        isTableExpanded ? "max-w-none" : "max-w-7xl"
+      } bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden`,
+    [isTableExpanded]
+  );
+
+  // Pagination logic - memoized
   const goToPage = useCallback(
     (page: number) => {
       setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -116,7 +141,7 @@ const WerkBriefHome = () => {
     setCurrentPage(1);
   }, []);
 
-  // Sorting handlers
+  // Sorting handlers - optimized
   const handleSort = useCallback((key: keyof Werkbrief["fields"][0]) => {
     setSortConfig((prev) => ({
       key,
@@ -124,37 +149,46 @@ const WerkBriefHome = () => {
     }));
   }, []);
 
-  // Bulk selection handlers
+  const handleSortClear = useCallback(() => {
+    setSortConfig({ key: null, direction: "asc" });
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+  }, []);
+
+  const handleFiltersToggle = useCallback(() => {
+    setShowFilters((prev) => !prev);
+  }, []);
+
+  const handleTableExpandToggle = useCallback(() => {
+    setIsTableExpanded((prev) => !prev);
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm("");
+  }, []);
+
+  // Bulk selection handlers - optimized
   const handleBulkSelectAll = useCallback(() => {
     const newBulkSelectAll = !bulkSelectAll;
     setBulkSelectAll(newBulkSelectAll);
 
-    if (newBulkSelectAll) {
-      const newCheckedFields = [...checkedFields];
-      paginatedFields.forEach((field) => {
-        const originalIndex = editedFields.findIndex((f) => f === field);
-        if (originalIndex !== -1) {
-          newCheckedFields[originalIndex] = true;
+    setCheckedFields((prevChecked) => {
+      const newCheckedFields = [...prevChecked];
+
+      // Create a Set for faster lookups
+      const paginatedFieldsSet = new Set(paginatedFields);
+
+      editedFields.forEach((field, index) => {
+        if (paginatedFieldsSet.has(field)) {
+          newCheckedFields[index] = newBulkSelectAll;
         }
       });
-      setCheckedFields(newCheckedFields);
-    } else {
-      const newCheckedFields = [...checkedFields];
-      paginatedFields.forEach((field) => {
-        const originalIndex = editedFields.findIndex((f) => f === field);
-        if (originalIndex !== -1) {
-          newCheckedFields[originalIndex] = false;
-        }
-      });
-      setCheckedFields(newCheckedFields);
-    }
-  }, [
-    bulkSelectAll,
-    checkedFields,
-    paginatedFields,
-    editedFields,
-    setCheckedFields,
-  ]);
+
+      return newCheckedFields;
+    });
+  }, [bulkSelectAll, paginatedFields, editedFields, setCheckedFields]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -167,17 +201,20 @@ const WerkBriefHome = () => {
     onGoToPage: goToPage,
   });
 
-  // Row management functions
-  const createDummyRow = (): Werkbrief["fields"][0] => ({
-    "Item Description": "New Product Description",
-    "GOEDEREN OMSCHRIJVING": "NIEUWE GOEDEREN",
-    "GOEDEREN CODE": "00000000",
-    CTNS: 1.0,
-    STKS: 1.0,
-    BRUTO: 1.0,
-    FOB: 100.0,
-    Confidence: "100%",
-  });
+  // Row management functions - optimized
+  const createDummyRow = useCallback(
+    (): Werkbrief["fields"][0] => ({
+      "Item Description": "New Product Description",
+      "GOEDEREN OMSCHRIJVING": "NIEUWE GOEDEREN",
+      "GOEDEREN CODE": "00000000",
+      CTNS: 1.0,
+      STKS: 1.0,
+      BRUTO: 1.0,
+      FOB: 100.0,
+      Confidence: "100%",
+    }),
+    []
+  );
 
   const insertRowAt = useCallback(
     (index: number) => {
@@ -193,7 +230,7 @@ const WerkBriefHome = () => {
         return newCheckedFields;
       });
     },
-    [setEditedFields, setCheckedFields]
+    [createDummyRow, setEditedFields, setCheckedFields]
   );
 
   const deleteRow = useCallback(
@@ -227,24 +264,28 @@ const WerkBriefHome = () => {
     if (deletedRows.length === 0) return;
 
     const lastDeleted = deletedRows[deletedRows.length - 1];
-    const newEditedFields = [...editedFields];
-    const newCheckedFields = [...checkedFields];
 
-    const insertIndex = Math.min(lastDeleted.index, newEditedFields.length);
-    newEditedFields.splice(insertIndex, 0, lastDeleted.data);
-    newCheckedFields.splice(insertIndex, 0, lastDeleted.checked);
+    setEditedFields((prevFields) => {
+      const newEditedFields = [...prevFields];
+      const insertIndex = Math.min(lastDeleted.index, newEditedFields.length);
+      newEditedFields.splice(insertIndex, 0, lastDeleted.data);
+      return newEditedFields;
+    });
 
-    setEditedFields(newEditedFields);
-    setCheckedFields(newCheckedFields);
+    setCheckedFields((prevChecked) => {
+      const newCheckedFields = [...prevChecked];
+      const insertIndex = Math.min(lastDeleted.index, newCheckedFields.length);
+      newCheckedFields.splice(insertIndex, 0, lastDeleted.checked);
+      return newCheckedFields;
+    });
+
     setDeletedRows((prev) => prev.slice(0, -1));
     setShowUndoNotification(false);
-  }, [
-    deletedRows,
-    editedFields,
-    checkedFields,
-    setEditedFields,
-    setCheckedFields,
-  ]);
+  }, [deletedRows, setEditedFields, setCheckedFields]);
+
+  const handleUndoDismiss = useCallback(() => {
+    setShowUndoNotification(false);
+  }, []);
 
   // Generation function
   const onGenerate = async () => {
@@ -272,13 +313,13 @@ const WerkBriefHome = () => {
         const fileSizeMB = pdfFile.size / (1024 * 1024);
         console.log(`File size: ${fileSizeMB.toFixed(2)}MB`);
 
-        // Determine upload method based on file size
-        const useChunkedUpload = fileSizeMB > 10;
-        const estimatedTime = useChunkedUpload
-          ? "Large file detected - using optimized chunked upload..."
-          : fileSizeMB > 5
-          ? "Medium file - this may take a few moments..."
-          : "Uploading...";
+        // Simple upload for all file sizes
+        const estimatedTime =
+          fileSizeMB > 50
+            ? "Large file - this may take several minutes..."
+            : fileSizeMB > 10
+            ? "Medium file - this may take a few moments..."
+            : "Uploading...";
 
         setProgress({
           type: "progress",
@@ -290,7 +331,7 @@ const WerkBriefHome = () => {
           (uploadProgressData) => {
             setUploadProgress(uploadProgressData);
 
-            // Enhanced progress logging with speed and time estimates
+            // Progress logging with speed and time estimates
             const speedMBps = uploadProgressData.speed / (1024 * 1024);
             const remainingMin = uploadProgressData.remainingTime / 60;
 
@@ -474,8 +515,8 @@ const WerkBriefHome = () => {
     }
   };
 
-  // Excel functions
-  const handleCopyToExcel = async () => {
+  // Excel functions - optimized with useCallback
+  const handleCopyToExcel = useCallback(async () => {
     if (!editedFields || editedFields.length === 0) return;
 
     try {
@@ -489,9 +530,9 @@ const WerkBriefHome = () => {
     } catch (error) {
       console.error("Failed to copy to clipboard:", error);
     }
-  };
+  }, [editedFields, checkedFields]);
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = useCallback(() => {
     if (!editedFields || editedFields.length === 0) return;
 
     try {
@@ -499,11 +540,7 @@ const WerkBriefHome = () => {
     } catch (error) {
       console.error("Failed to download Excel file:", error);
     }
-  };
-
-  // Calculate stats
-  const totalFilteredItems = filteredAndSortedFields.length;
-  const selectedCount = checkedFields.filter(Boolean).length;
+  }, [editedFields, checkedFields]);
 
   return (
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-7xl mx-auto">
@@ -538,13 +575,8 @@ const WerkBriefHome = () => {
         <div className="text-red-500 text-sm">{error}</div>
       )}
 
-      {((result && result.fields && result.fields.length > 0) ||
-        editedFields.length > 0) && (
-        <div
-          className={`w-full transition-all duration-300 ${
-            isTableExpanded ? "max-w-none" : "max-w-7xl"
-          } bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden`}
-        >
+      {hasTableData && (
+        <div className={tableContainerClasses}>
           <TableHeader
             searchTerm={searchTerm}
             showFilters={showFilters}
@@ -552,9 +584,9 @@ const WerkBriefHome = () => {
             totalFilteredItems={totalFilteredItems}
             totalItems={editedFields.length}
             copied={copied}
-            onSearchChange={setSearchTerm}
-            onFiltersToggle={() => setShowFilters(!showFilters)}
-            onTableExpandToggle={() => setIsTableExpanded(!isTableExpanded)}
+            onSearchChange={handleSearchChange}
+            onFiltersToggle={handleFiltersToggle}
+            onTableExpandToggle={handleTableExpandToggle}
             onDownload={handleDownloadExcel}
             onCopy={handleCopyToExcel}
           />
@@ -565,7 +597,7 @@ const WerkBriefHome = () => {
             totalItems={editedFields.length}
             sortConfig={sortConfig}
             onItemsPerPageChange={handleItemsPerPageChange}
-            onSortClear={() => setSortConfig({ key: null, direction: "asc" })}
+            onSortClear={handleSortClear}
           />
 
           <TotalBrutoSection
@@ -576,7 +608,7 @@ const WerkBriefHome = () => {
           <UndoNotification
             isVisible={showUndoNotification && deletedRows.length > 0}
             onUndo={undoLastDeletion}
-            onDismiss={() => setShowUndoNotification(false)}
+            onDismiss={handleUndoDismiss}
           />
 
           <DataTable
@@ -598,7 +630,7 @@ const WerkBriefHome = () => {
             onFieldChange={handleFieldChange}
             onInsertRow={insertRowAt}
             onDeleteRow={deleteRow}
-            onClearSearch={() => setSearchTerm("")}
+            onClearSearch={handleClearSearch}
           />
 
           <TableFooter
