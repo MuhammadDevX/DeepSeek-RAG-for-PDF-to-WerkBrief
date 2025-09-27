@@ -11,6 +11,8 @@
   "dependencies": {
     "@ai-sdk/deepseek": "^1.0.15",
     "@ai-sdk/openai": "^2.0.27",
+    "@aws-sdk/client-s3": "^3.896.0",
+    "@aws-sdk/s3-request-presigner": "^3.896.0",
     "@clerk/nextjs": "^6.31.9",
     "@langchain/community": "^0.3.17",
     "@langchain/core": "^0.3.76",
@@ -40,6 +42,7 @@
     "tesseract.js": "^5.1.1",
     "three": "^0.180.0",
     "three-globe": "^2.44.0",
+    "uuid": "^13.0.0",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
@@ -50,6 +53,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",

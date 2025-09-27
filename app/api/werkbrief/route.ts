@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import os from "os";
+import { NextRequest } from "next/server";
+import { generateWerkbrief } from "@/lib/ai/agent";
+import {
+  downloadFileFromSpaces,
+  deleteFileFromSpaces,
+} from "@/lib/spaces-utils";
 
 export const runtime = "nodejs";
-import { generateWerkbrief } from "@/lib/ai/agent";
 
 interface ProgressData {
   type: "progress" | "complete" | "error";
@@ -17,27 +18,41 @@ interface ProgressData {
   error?: string;
 }
 
-// Handle CORS preflight requests
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
-}
-
 export async function POST(req: NextRequest) {
-  let tempFilePath: string | undefined;
+  let fileKey: string | undefined;
 
   try {
-    const formData = await req.formData();
-    const description = formData.get("description") as string;
-    const pdfFile = formData.get("pdf") as File | null;
-    const streaming = formData.get("streaming") === "true";
+    const contentType = req.headers.get("content-type") || "";
+    console.log("Request content-type:", contentType);
+
+    // Only accept JSON requests now (Spaces upload method)
+    if (!contentType.includes("application/json")) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "This endpoint now requires JSON format. Please use the new Spaces upload method instead of direct file upload.",
+        }),
+        { status: 400 }
+      );
+    }
+
+    let description: string;
+    let uploadedFileKey: string | undefined;
+    let streaming: boolean = false;
+    let pdfBuffer: Buffer | undefined;
+
+    // Parse JSON request body
+    try {
+      const body = await req.json();
+      description = body.description;
+      uploadedFileKey = body.fileKey;
+      streaming = body.streaming || false;
+    } catch (jsonError) {
+      console.error("Failed to parse JSON:", jsonError);
+      return new Response(JSON.stringify({ error: "Invalid JSON format" }), {
+        status: 400,
+      });
+    }
 
     if (!description) {
       return new Response(
@@ -46,29 +61,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let pdfBuffer: Buffer | undefined;
-
-    // Handle PDF file - save to temporary file and create buffer
-    if (pdfFile && pdfFile.size > 0) {
-      // Save PDF to temporary file
-      const tempDir = os.tmpdir();
-      tempFilePath = path.join(tempDir, `temp_${Date.now()}_${pdfFile.name}`);
-      const stream = fs.createWriteStream(tempFilePath);
-
-      const reader = pdfFile.stream().getReader();
+    // Handle PDF file - download from Spaces if file key is provided
+    if (uploadedFileKey) {
+      fileKey = uploadedFileKey;
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          stream.write(value);
-        }
-      } finally {
-        stream.end();
+        console.log(`Downloading file from Spaces: ${fileKey}`);
+        pdfBuffer = await downloadFileFromSpaces(fileKey);
+        console.log(
+          `Successfully downloaded file, size: ${pdfBuffer.length} bytes`
+        );
+      } catch (error) {
+        console.error("Failed to download file from Spaces:", error);
+        return new Response(
+          JSON.stringify({ error: "Failed to download uploaded file" }),
+          { status: 400 }
+        );
       }
-
-      // Also create buffer for existing functionality
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      pdfBuffer = Buffer.from(arrayBuffer);
     }
 
     // If streaming is requested, use Server-Sent Events
@@ -171,17 +179,9 @@ export async function POST(req: NextRequest) {
             controller.close();
           }
         } finally {
-          // Clean up temporary file
-          if (tempFilePath && fs.existsSync(tempFilePath)) {
-            try {
-              fs.unlinkSync(tempFilePath);
-              console.log(`Temporary file deleted: ${tempFilePath}`);
-            } catch (cleanupError) {
-              console.error(
-                `Failed to delete temporary file: ${tempFilePath}`,
-                cleanupError
-              );
-            }
+          // Clean up file from Spaces
+          if (fileKey) {
+            await deleteFileFromSpaces(fileKey);
           }
         }
       })();
@@ -210,34 +210,18 @@ export async function POST(req: NextRequest) {
           headers: { "Content-Type": "application/json" },
         });
       } finally {
-        // Clean up temporary file
-        if (tempFilePath && fs.existsSync(tempFilePath)) {
-          try {
-            fs.unlinkSync(tempFilePath);
-            console.log(`Temporary file deleted: ${tempFilePath}`);
-          } catch (cleanupError) {
-            console.error(
-              `Failed to delete temporary file: ${tempFilePath}`,
-              cleanupError
-            );
-          }
+        // Clean up file from Spaces
+        if (fileKey) {
+          await deleteFileFromSpaces(fileKey);
         }
       }
     }
   } catch (error: unknown) {
     console.error(error);
 
-    // Clean up temporary file in case of error
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      try {
-        fs.unlinkSync(tempFilePath);
-        console.log(`Temporary file deleted after error: ${tempFilePath}`);
-      } catch (cleanupError) {
-        console.error(
-          `Failed to delete temporary file after error: ${tempFilePath}`,
-          cleanupError
-        );
-      }
+    // Clean up file from Spaces in case of error
+    if (fileKey) {
+      await deleteFileFromSpaces(fileKey);
     }
 
     const errorMessage =
