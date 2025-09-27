@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "100mb",
     },
   },
+  serverRuntimeConfig: {
+    requestTimeout: 300000, // 5 minutes
+  },
 };
 
 export default nextConfig;

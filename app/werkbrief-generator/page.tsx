@@ -52,6 +52,9 @@ const WerkBriefHome = () => {
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
 
+  // New states for better error handling
+  const [streamingFallbackUsed, setStreamingFallbackUsed] = useState(false);
+
   // State for edited field values and checkbox states
   const [editedFields, setEditedFields] = useState<Werkbrief["fields"]>([]);
   const [checkedFields, setCheckedFields] = useState<boolean[]>([]);
@@ -417,6 +420,7 @@ const WerkBriefHome = () => {
     setProgress(null);
     setCopied(false);
     setIsTableLoading(true);
+    setStreamingFallbackUsed(false); // Reset fallback flag
 
     // Reset all table-related states when starting a new generation
     setEditedFields([]);
@@ -434,10 +438,16 @@ const WerkBriefHome = () => {
         formData.append("pdf", pdfFile);
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minute timeout
+
       const response = await fetch("/api/werkbrief", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -445,26 +455,96 @@ const WerkBriefHome = () => {
       }
 
       if (useStreaming) {
-        // Streaming mode
-        if (!response.body) {
-          throw new Error("No response body");
+        await handleStreamingResponse(response);
+      } else {
+        await handleNonStreamingResponse(response);
+      }
+    } catch (e) {
+      console.error("Generation error:", e);
+
+      // If streaming failed and we haven't tried non-streaming yet, try it as fallback
+      if (
+        useStreaming &&
+        e instanceof Error &&
+        (e.message.includes("JSON") ||
+          e.message.includes("parse") ||
+          e.message.includes("stream") ||
+          e.message.includes("timeout"))
+      ) {
+        console.log(
+          "Streaming failed, attempting fallback to non-streaming mode"
+        );
+        setUseStreaming(false);
+        setStreamingFallbackUsed(true);
+
+        try {
+          const formData = new FormData();
+          formData.append("description", "Generate a werkbrief");
+          if (pdfFile) {
+            formData.append("pdf", pdfFile);
+          }
+          // Don't append streaming flag for fallback
+
+          const fallbackController = new AbortController();
+          const fallbackTimeoutId = setTimeout(
+            () => fallbackController.abort(),
+            10 * 60 * 1000
+          );
+
+          const fallbackResponse = await fetch("/api/werkbrief", {
+            method: "POST",
+            body: formData,
+            signal: fallbackController.signal,
+          });
+
+          clearTimeout(fallbackTimeoutId);
+
+          if (!fallbackResponse.ok) {
+            const errorData = await fallbackResponse.json();
+            throw new Error(errorData?.error || "Failed to generate");
+          }
+
+          await handleNonStreamingResponse(fallbackResponse);
+          return; // Success with fallback
+        } catch (fallbackError) {
+          console.error("Fallback also failed:", fallbackError);
+          // Continue with original error handling below
         }
+      }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+      const message = e instanceof Error ? e.message : "Something went wrong";
+      setError(message);
+      setProgress({ type: "error", error: message });
+      setIsTableLoading(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+  const handleStreamingResponse = async (response: Response) => {
+    // Streaming mode
+    if (!response.body) {
+      throw new Error("No response body");
+    }
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let lastError: string | null = null;
 
-          for (const line of lines) {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        // Process any remaining buffer content
+        if (buffer.trim()) {
+          const remainingLines = buffer.split("\n");
+          for (const line of remainingLines) {
             if (line.startsWith("data: ")) {
               try {
                 const progressData = JSON.parse(line.slice(6)) as ProgressData;
                 setProgress(progressData);
+                lastError = null; // Reset error on successful parse
 
                 if (progressData.type === "complete" && progressData.data) {
                   const parsed = WerkbriefSchema.safeParse(progressData.data);
@@ -481,32 +561,92 @@ const WerkBriefHome = () => {
                   throw new Error(progressData.error || "Processing failed");
                 }
               } catch (parseError) {
-                console.warn("Failed to parse progress data:", parseError);
+                const errorMsg = `Failed to parse progress data: ${parseError}`;
+                console.warn(errorMsg);
+                lastError = errorMsg;
               }
             }
           }
         }
-      } else {
-        // Non-streaming mode (original behavior)
-        const data = await response.json();
-        console.log("API Response:", data);
-
-        const parsed = WerkbriefSchema.safeParse(data);
-        if (!parsed.success) {
-          console.error("Schema validation failed:", parsed.error);
-          throw new Error(`Invalid response shape: ${parsed.error.message}`);
-        }
-        setResult(parsed.data);
-        setIsTableLoading(false);
+        break;
       }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Something went wrong";
-      setError(message);
-      setProgress({ type: "error", error: message });
-      setIsTableLoading(false);
-    } finally {
-      setLoading(false);
+
+      const chunk = decoder.decode(value, { stream: true });
+      buffer += chunk;
+
+      // Process complete lines from buffer
+      const lines = buffer.split("\n");
+      // Keep the last line in buffer as it might be incomplete
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue; // Skip empty data lines
+
+            // Validate JSON structure before parsing
+            if (!jsonStr.startsWith("{") || !jsonStr.endsWith("}")) {
+              console.warn(
+                "Incomplete JSON detected, buffering:",
+                jsonStr.substring(0, 50)
+              );
+              buffer = line + "\n" + buffer;
+              continue;
+            }
+
+            const progressData = JSON.parse(jsonStr) as ProgressData;
+            setProgress(progressData);
+            lastError = null; // Reset error on successful parse
+
+            if (progressData.type === "complete" && progressData.data) {
+              const parsed = WerkbriefSchema.safeParse(progressData.data);
+              if (parsed.success) {
+                setResult(parsed.data);
+                setIsTableLoading(false);
+              } else {
+                console.error("Schema validation failed:", parsed.error);
+                throw new Error(
+                  `Invalid response shape: ${parsed.error.message}`
+                );
+              }
+            } else if (progressData.type === "error") {
+              throw new Error(progressData.error || "Processing failed");
+            }
+          } catch (parseError) {
+            const errorMsg = `Failed to parse progress data: ${parseError}`;
+            console.warn(errorMsg);
+            lastError = errorMsg;
+
+            // If JSON is truncated, put the line back in buffer for next iteration
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr && jsonStr.startsWith("{") && !jsonStr.endsWith("}")) {
+              console.log("JSON appears truncated, buffering for next chunk");
+              buffer = line + "\n" + buffer;
+            }
+          }
+        }
+      }
     }
+
+    // If we had persistent parsing errors, throw the last one
+    if (lastError) {
+      throw new Error(lastError);
+    }
+  };
+
+  const handleNonStreamingResponse = async (response: Response) => {
+    // Non-streaming mode (original behavior)
+    const data = await response.json();
+    console.log("API Response:", data);
+
+    const parsed = WerkbriefSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error("Schema validation failed:", parsed.error);
+      throw new Error(`Invalid response shape: ${parsed.error.message}`);
+    }
+    setResult(parsed.data);
+    setIsTableLoading(false);
   };
 
   const handleCopyToExcel = async () => {
@@ -714,6 +854,19 @@ const WerkBriefHome = () => {
 
       {error && (!useStreaming || !progress) && (
         <div className="text-red-500 text-sm">{error}</div>
+      )}
+
+      {/* Show fallback message when streaming fallback was used */}
+      {streamingFallbackUsed && !loading && result && (
+        <div className="text-yellow-600 dark:text-yellow-400 text-sm bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-center gap-2">
+            ⚠️{" "}
+            <span>
+              Real-time progress was unavailable, but your data was processed
+              successfully using standard mode.
+            </span>
+          </div>
+        </div>
       )}
       {(result && result.fields && result.fields.length > 0) ||
       editedFields.length > 0 ? (
