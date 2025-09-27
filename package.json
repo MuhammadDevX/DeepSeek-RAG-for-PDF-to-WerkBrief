@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "NODE_ENV=production node server.js",
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
@@ -15,7 +15,6 @@
     "@langchain/community": "^0.3.17",
     "@langchain/core": "^0.3.76",
     "@napi-rs/canvas": "^0.1.56",
-    "@openai/agents": "^0.1.1",
     "@pinecone-database/pinecone": "^6.1.2",
     "@radix-ui/react-slot": "^1.2.3",
     "@react-three/drei": "^10.7.4",
