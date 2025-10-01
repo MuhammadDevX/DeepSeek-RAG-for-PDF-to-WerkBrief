@@ -12,6 +12,7 @@ interface TableRowProps {
   field: Werkbrief["fields"][0];
   originalField: Werkbrief["fields"][0];
   index: number;
+  totalRows: number;
   isChecked: boolean;
   onCheckboxChange: (index: number, checked: boolean) => void;
   onFieldChange: (
@@ -21,6 +22,7 @@ interface TableRowProps {
   ) => void;
   onInsertRow: (index: number) => void;
   onDeleteRow: (index: number) => void;
+  onMoveRow: (fromIndex: number, toIndex: number) => void;
 }
 
 const TableRow = memo(
@@ -28,11 +30,13 @@ const TableRow = memo(
     field,
     originalField,
     index,
+    totalRows,
     isChecked,
     onCheckboxChange,
     onFieldChange,
     onInsertRow,
     onDeleteRow,
+    onMoveRow,
   }: TableRowProps) => {
     const confidence = parseFloat(originalField.Confidence || "0");
 
@@ -101,6 +105,48 @@ const TableRow = memo(
       onDeleteRow(index);
     }, [index, onDeleteRow]);
 
+    const [isEditingRowNumber, setIsEditingRowNumber] = React.useState(false);
+    const [tempRowNumber, setTempRowNumber] = React.useState("");
+
+    const handleRowNumberClick = useCallback(() => {
+      setIsEditingRowNumber(true);
+      setTempRowNumber(String(index + 1));
+    }, [index]);
+
+    const handleRowNumberChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (value === "" || /^\d+$/.test(value)) {
+          setTempRowNumber(value);
+        }
+      },
+      []
+    );
+
+    const handleRowNumberBlur = useCallback(() => {
+      const newPosition = parseInt(tempRowNumber, 10);
+      if (!isNaN(newPosition) && newPosition >= 1 && newPosition <= totalRows) {
+        const targetIndex = newPosition - 1;
+        if (targetIndex !== index) {
+          onMoveRow(index, targetIndex);
+        }
+      }
+      setIsEditingRowNumber(false);
+      setTempRowNumber("");
+    }, [tempRowNumber, index, totalRows, onMoveRow]);
+
+    const handleRowNumberKeyDown = useCallback(
+      (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+          handleRowNumberBlur();
+        } else if (e.key === "Escape") {
+          setIsEditingRowNumber(false);
+          setTempRowNumber("");
+        }
+      },
+      [handleRowNumberBlur]
+    );
+
     return (
       <tr
         className={`${
@@ -122,9 +168,27 @@ const TableRow = memo(
         </td>
         <td className="px-2 py-3 text-sm sticky left-12 bg-inherit z-20">
           <div className="flex items-center justify-center">
-            <span className="w-6 h-6 bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/40 text-blue-700 dark:text-blue-300 rounded-lg flex items-center justify-center font-semibold text-xs shadow-sm group-hover:shadow-md transition-shadow duration-150">
-              {index + 1}
-            </span>
+            {isEditingRowNumber ? (
+              <input
+                type="text"
+                value={tempRowNumber}
+                onChange={handleRowNumberChange}
+                onBlur={handleRowNumberBlur}
+                onKeyDown={handleRowNumberKeyDown}
+                autoFocus
+                className="w-12 h-6 bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 rounded-lg text-center font-semibold text-xs border-2 border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            ) : (
+              <button
+                onClick={handleRowNumberClick}
+                className="w-8 h-6 bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/40 text-blue-700 dark:text-blue-300 rounded-lg flex items-center justify-center font-semibold text-xs shadow-sm hover:shadow-md hover:from-blue-200 hover:to-blue-300 dark:hover:from-blue-800/50 dark:hover:to-blue-700/50 transition-all duration-150 cursor-pointer group/number"
+                title="Click to change row position"
+              >
+                <span className="group-hover/number:scale-110 transition-transform">
+                  {index + 1}
+                </span>
+              </button>
+            )}
           </div>
         </td>
         <td className="px-2 py-3 text-center sticky left-22 bg-inherit z-20">

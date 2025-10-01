@@ -316,11 +316,17 @@ export async function generateWerkbriefStep(text: string) {
       return [];
     }
 
+    // Dynamic topK calculation: number of products * 15 + 50 threshold
+    const dynamicTopK = Math.max(store.products.length * 15 + 50, 50);
+    console.log(
+      `Using dynamic topK: ${dynamicTopK} for ${store.products.length} products`
+    );
+
     const retrieved = await retrieveRelevantSnippets(
       `The item descriptions are: ${store.products
         .map((p, i) => `${i}.${p.desc}`)
         .join("\n")}`,
-      store.products.length
+      dynamicTopK
     );
 
     const { object: werkBriefObj } = await generateObject({
@@ -328,7 +334,7 @@ export async function generateWerkbriefStep(text: string) {
       system: werkbriefSystemPrompt,
       prompt: `Generate a werkbrief for the following products:${store.products
         .map((p, i) => {
-          return `${i}.${p.desc}, bruto:${p.bruto}, fob:${p.fob}, stks:${p.stks}`;
+          return `${i}.${p.desc}, cartons:${p.ctns}, bruto:${p.bruto}, fob:${p.fob}, stks:${p.stks}`;
         })
         .join("\n\n")}\n. Here are the relevant snippets:\n${retrieved
         .map((r, i) => `(${i + 1}) ${r}`)

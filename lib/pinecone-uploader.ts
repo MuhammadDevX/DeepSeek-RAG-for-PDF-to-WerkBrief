@@ -118,6 +118,7 @@ export async function uploadToPinecone(
     const index = pc.Index(indexName);
 
     const totalVectors = documents.length;
+    console.log("Document entry looks like", documents[0]);
     const totalBatches = Math.ceil(totalVectors / BATCH_SIZE);
     let successfulVectors = 0;
     let failedVectors = 0;

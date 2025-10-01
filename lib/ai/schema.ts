@@ -36,8 +36,11 @@ export const ProductsBoughtSchema = z.object({
       desc: z.string({ description: "Name of the item bought" }),
       bruto: z.string({ description: "Number of cartons for that product" }),
       stks: z.string({ description: "Pieces (total units inside the carton)" }),
+      ctns: z.number({
+        description: "Cartons (number of cartons/packages for that product).",
+      }),
       fob: z.string({
-        description: "cost of goods at origin (without insurance)",
+        description: "final cost of goods",
       }),
     })
   ),

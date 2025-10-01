@@ -38,6 +38,7 @@ interface DataTableProps {
   ) => void;
   onInsertRow: (index: number) => void;
   onDeleteRow: (index: number) => void;
+  onMoveRow: (fromIndex: number, toIndex: number) => void;
   onClearSearch: () => void;
 }
 
@@ -61,6 +62,7 @@ export const DataTable = React.memo(
     onFieldChange,
     onInsertRow,
     onDeleteRow,
+    onMoveRow,
     onClearSearch,
   }: DataTableProps) => {
     return (
@@ -99,11 +101,13 @@ export const DataTable = React.memo(
                       field={field}
                       originalField={originalField}
                       index={originalIndex}
+                      totalRows={editedFields.length}
                       isChecked={isChecked}
                       onCheckboxChange={onCheckboxChange}
                       onFieldChange={onFieldChange}
                       onInsertRow={onInsertRow}
                       onDeleteRow={onDeleteRow}
+                      onMoveRow={onMoveRow}
                     />
                   );
                 })}

@@ -81,7 +81,7 @@ export const TableHeaderRow = React.memo(
         </SortableHeader>
         <SortableHeader
           sortKey="GOEDEREN OMSCHRIJVING"
-          className="w-40 px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850"
+          className="w-64 px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850"
         >
           Goederen Omschrijving
         </SortableHeader>

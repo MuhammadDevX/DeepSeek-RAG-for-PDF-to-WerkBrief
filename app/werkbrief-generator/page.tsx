@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import { Description } from "./_components/Description";
 import { WerkbriefProgress } from "./_components/WerkbriefProgress";
 import { FileUploadSection } from "./_components/FileUploadSection";
@@ -46,6 +46,9 @@ interface DeletedRow {
 }
 
 const WerkBriefHome = () => {
+  // Ref to track if we've already auto-collapsed the upload section
+  const hasAutoCollapsed = useRef(false);
+
   // Core state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,15 +68,17 @@ const WerkBriefHome = () => {
   // UI state
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(100);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(50);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Werkbrief["fields"][0] | null;
     direction: "asc" | "desc";
   }>({ key: null, direction: "asc" });
   const [isTableExpanded, setIsTableExpanded] = useState<boolean>(false);
-  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [showFilters, setShowFilters] = useState<boolean>(true);
   const [isTableLoading, setIsTableLoading] = useState<boolean>(false);
   const [bulkSelectAll, setBulkSelectAll] = useState<boolean>(false);
+  const [isUploadSectionCollapsed, setIsUploadSectionCollapsed] =
+    useState<boolean>(false);
 
   // Deleted rows state
   const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
@@ -118,6 +123,14 @@ const WerkBriefHome = () => {
       editedFields.length > 0,
     [result, editedFields.length]
   );
+
+  // Auto-collapse upload section when table data is available (only once)
+  React.useEffect(() => {
+    if (hasTableData && !hasAutoCollapsed.current) {
+      setIsUploadSectionCollapsed(true);
+      hasAutoCollapsed.current = true;
+    }
+  }, [hasTableData]);
 
   // Memoize table expansion classes to prevent recalculation
   const tableContainerClasses = useMemo(
@@ -231,6 +244,33 @@ const WerkBriefHome = () => {
       });
     },
     [createDummyRow, setEditedFields, setCheckedFields]
+  );
+
+  const moveRow = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (
+        fromIndex === toIndex ||
+        toIndex < 0 ||
+        toIndex >= editedFields.length
+      ) {
+        return;
+      }
+
+      setEditedFields((prev) => {
+        const newEditedFields = [...prev];
+        const [movedRow] = newEditedFields.splice(fromIndex, 1);
+        newEditedFields.splice(toIndex, 0, movedRow);
+        return newEditedFields;
+      });
+
+      setCheckedFields((prev) => {
+        const newCheckedFields = [...prev];
+        const [movedCheck] = newCheckedFields.splice(fromIndex, 1);
+        newCheckedFields.splice(toIndex, 0, movedCheck);
+        return newCheckedFields;
+      });
+    },
+    [editedFields.length, setEditedFields, setCheckedFields]
   );
 
   const deleteRow = useCallback(
@@ -544,35 +584,95 @@ const WerkBriefHome = () => {
 
   return (
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-7xl mx-auto">
-      <Description />
+      {/* Collapsible Upload Section */}
+      {isUploadSectionCollapsed ? (
+        // Collapsed State - Show small expand button
+        <div className="flex items-center justify-center w-full pt-4">
+          <button
+            onClick={() => setIsUploadSectionCollapsed(false)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md transition-all duration-200 hover:scale-105"
+            title="Expand upload section"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+            <span className="font-medium">Expand Upload Section</span>
+          </button>
+        </div>
+      ) : (
+        // Expanded State - Show full upload section
+        <>
+          <div className="flex items-center justify-between w-full pt-4">
+            <div className="flex-1"></div>
+            <Description />
+            <div className="flex-1 flex justify-end">
+              {hasTableData && (
+                <button
+                  onClick={() => setIsUploadSectionCollapsed(true)}
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  title="Collapse upload section"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 15l7-7 7 7"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
 
-      <FileUploadSection
-        pdfFile={pdfFile}
-        loading={loading}
-        isUploading={isUploading}
-        uploadProgress={uploadProgress}
-        useStreaming={useStreaming}
-        onFileSelect={setPdfFile}
-        onGenerate={onGenerate}
-        onStreamingToggle={setUseStreaming}
-      />
+          <FileUploadSection
+            pdfFile={pdfFile}
+            loading={loading}
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            useStreaming={useStreaming}
+            onFileSelect={setPdfFile}
+            onGenerate={onGenerate}
+            onStreamingToggle={setUseStreaming}
+          />
 
-      <UploadProgressBar
-        uploadProgress={uploadProgress}
-        isVisible={isUploading && !!uploadProgress}
-      />
+          <UploadProgressBar
+            uploadProgress={uploadProgress}
+            isVisible={isUploading && !!uploadProgress}
+          />
 
-      {useStreaming && progress && (
-        <WerkbriefProgress
-          progress={progress}
-          isVisible={
-            loading || progress.type === "complete" || progress.type === "error"
-          }
-        />
-      )}
+          {useStreaming && progress && (
+            <WerkbriefProgress
+              progress={progress}
+              isVisible={
+                loading ||
+                progress.type === "complete" ||
+                progress.type === "error"
+              }
+            />
+          )}
 
-      {error && (!useStreaming || !progress) && (
-        <div className="text-red-500 text-sm">{error}</div>
+          {error && (!useStreaming || !progress) && (
+            <div className="text-red-500 text-sm">{error}</div>
+          )}
+        </>
       )}
 
       {hasTableData && (
@@ -630,6 +730,7 @@ const WerkBriefHome = () => {
             onFieldChange={handleFieldChange}
             onInsertRow={insertRowAt}
             onDeleteRow={deleteRow}
+            onMoveRow={moveRow}
             onClearSearch={handleClearSearch}
           />
 
