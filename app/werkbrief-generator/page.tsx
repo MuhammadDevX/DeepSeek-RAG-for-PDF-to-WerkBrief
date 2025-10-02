@@ -136,7 +136,7 @@ const WerkBriefHome = () => {
   const tableContainerClasses = useMemo(
     () =>
       `w-full transition-all duration-300 ${
-        isTableExpanded ? "max-w-none" : "max-w-7xl"
+        isTableExpanded ? "max-w-none" : "max-w-full"
       } bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden`,
     [isTableExpanded]
   );
@@ -583,7 +583,7 @@ const WerkBriefHome = () => {
   }, [editedFields, checkedFields]);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-7xl mx-auto">
+    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-full mx-auto p-4">
       {/* Collapsible Upload Section */}
       {isUploadSectionCollapsed ? (
         // Collapsed State - Show small expand button

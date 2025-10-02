@@ -68,7 +68,7 @@ export const DataTable = React.memo(
     return (
       <div
         className={`${styles.tableContainer} relative ${
-          isTableExpanded ? "h-[70vh]" : "max-h-[600px]"
+          isTableExpanded ? "h-[70vh]" : "max-h-screen"
         } overflow-auto`}
       >
         <div className="min-w-full">
