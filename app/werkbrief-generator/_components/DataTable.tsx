@@ -40,6 +40,12 @@ interface DataTableProps {
   onDeleteRow: (index: number) => void;
   onMoveRow: (fromIndex: number, toIndex: number) => void;
   onClearSearch: () => void;
+  isDeleteMode?: boolean;
+  deleteSelectAll?: boolean;
+  onToggleDeleteMode?: () => void;
+  onDeleteSelectAll?: () => void;
+  selectedForDeletion?: boolean[];
+  onToggleDeleteSelection?: (index: number) => void;
 }
 
 export const DataTable = React.memo(
@@ -64,6 +70,12 @@ export const DataTable = React.memo(
     onDeleteRow,
     onMoveRow,
     onClearSearch,
+    isDeleteMode = false,
+    deleteSelectAll = false,
+    onToggleDeleteMode,
+    onDeleteSelectAll,
+    selectedForDeletion = [],
+    onToggleDeleteSelection,
   }: DataTableProps) => {
     return (
       <div
@@ -79,6 +91,10 @@ export const DataTable = React.memo(
                 bulkSelectAll={bulkSelectAll}
                 onSort={onSort}
                 onBulkSelectAll={onBulkSelectAll}
+                isDeleteMode={isDeleteMode}
+                deleteSelectAll={deleteSelectAll}
+                onToggleDeleteMode={onToggleDeleteMode}
+                onDeleteSelectAll={onDeleteSelectAll}
               />
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-700">
@@ -94,6 +110,8 @@ export const DataTable = React.memo(
                   const originalField =
                     result?.fields?.[originalIndex] || field;
                   const isChecked = checkedFields[originalIndex] || false;
+                  const isSelectedForDel =
+                    selectedForDeletion[originalIndex] || false;
 
                   return (
                     <TableRow
@@ -108,6 +126,9 @@ export const DataTable = React.memo(
                       onInsertRow={onInsertRow}
                       onDeleteRow={onDeleteRow}
                       onMoveRow={onMoveRow}
+                      isDeleteMode={isDeleteMode}
+                      isSelectedForDeletion={isSelectedForDel}
+                      onToggleDeleteSelection={onToggleDeleteSelection}
                     />
                   );
                 })}

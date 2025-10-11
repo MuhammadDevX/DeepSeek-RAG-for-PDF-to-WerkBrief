@@ -40,6 +40,10 @@ interface DeletedRow {
   data: Werkbrief["fields"][0];
   checked: boolean;
   index: number;
+}
+
+interface DeletedBatch {
+  rows: DeletedRow[];
   timestamp: number;
 }
 
@@ -104,6 +108,14 @@ const WerkBriefHome = () => {
     setEditedFields,
     checkedFields,
     setCheckedFields,
+
+    // Delete mode state
+    isDeleteMode,
+    setIsDeleteMode,
+    selectedForDeletion,
+    setSelectedForDeletion,
+    deleteSelectAll,
+    setDeleteSelectAll,
   } = useWerkbrief();
 
   // Custom hooks
@@ -138,6 +150,10 @@ const WerkBriefHome = () => {
   const selectedCount = useMemo(
     () => checkedFields.filter(Boolean).length,
     [checkedFields]
+  );
+  const selectedForDeletionCount = useMemo(
+    () => selectedForDeletion.filter(Boolean).length,
+    [selectedForDeletion]
   );
   const hasTableData = useMemo(
     () =>
@@ -263,6 +279,7 @@ const WerkBriefHome = () => {
       BRUTO: 1.0,
       FOB: 0.0,
       Confidence: "100%",
+      "Page Number": undefined,
     }),
     []
   );
@@ -313,14 +330,18 @@ const WerkBriefHome = () => {
 
   const deleteRow = useCallback(
     (index: number) => {
-      const deletedRow: DeletedRow = {
-        data: editedFields[index],
-        checked: checkedFields[index],
-        index,
+      const deletedBatch: DeletedBatch = {
+        rows: [
+          {
+            data: editedFields[index],
+            checked: checkedFields[index],
+            index,
+          },
+        ],
         timestamp: Date.now(),
       };
 
-      setDeletedRows((prev) => [...prev, deletedRow]);
+      setDeletedRows((prev) => [...prev, deletedBatch]);
 
       setEditedFields((prev) => {
         const newEditedFields = [...prev];
@@ -348,19 +369,28 @@ const WerkBriefHome = () => {
   const undoLastDeletion = useCallback(() => {
     if (deletedRows.length === 0) return;
 
-    const lastDeleted = deletedRows[deletedRows.length - 1];
+    const lastDeletedBatch = deletedRows[deletedRows.length - 1];
+
+    // Restore all rows from the batch in reverse order to maintain original indices
+    const sortedRows = [...lastDeletedBatch.rows].sort(
+      (a, b) => a.index - b.index
+    );
 
     setEditedFields((prevFields) => {
       const newEditedFields = [...prevFields];
-      const insertIndex = Math.min(lastDeleted.index, newEditedFields.length);
-      newEditedFields.splice(insertIndex, 0, lastDeleted.data);
+      sortedRows.forEach((row) => {
+        const insertIndex = Math.min(row.index, newEditedFields.length);
+        newEditedFields.splice(insertIndex, 0, row.data);
+      });
       return newEditedFields;
     });
 
     setCheckedFields((prevChecked) => {
       const newCheckedFields = [...prevChecked];
-      const insertIndex = Math.min(lastDeleted.index, newCheckedFields.length);
-      newCheckedFields.splice(insertIndex, 0, lastDeleted.checked);
+      sortedRows.forEach((row) => {
+        const insertIndex = Math.min(row.index, newCheckedFields.length);
+        newCheckedFields.splice(insertIndex, 0, row.checked);
+      });
       return newCheckedFields;
     });
 
@@ -377,6 +407,115 @@ const WerkBriefHome = () => {
   const handleUndoDismiss = useCallback(() => {
     setShowUndoNotification(false);
   }, [setShowUndoNotification]);
+
+  // Delete mode handlers
+  const handleToggleDeleteMode = useCallback(() => {
+    setIsDeleteMode((prev) => !prev);
+    // Clear selection when toggling mode
+    if (!isDeleteMode) {
+      setSelectedForDeletion([]);
+      setDeleteSelectAll(false);
+    }
+  }, [
+    isDeleteMode,
+    setIsDeleteMode,
+    setSelectedForDeletion,
+    setDeleteSelectAll,
+  ]);
+
+  const handleDeleteSelectAll = useCallback(() => {
+    const newDeleteSelectAll = !deleteSelectAll;
+    setDeleteSelectAll(newDeleteSelectAll);
+
+    setSelectedForDeletion((prevSelected) => {
+      const newSelectedForDeletion = [...prevSelected];
+
+      // Create a Set for faster lookups
+      const paginatedFieldsSet = new Set(paginatedFields);
+
+      editedFields.forEach((field, index) => {
+        if (paginatedFieldsSet.has(field)) {
+          newSelectedForDeletion[index] = newDeleteSelectAll;
+        }
+      });
+
+      return newSelectedForDeletion;
+    });
+  }, [
+    deleteSelectAll,
+    paginatedFields,
+    editedFields,
+    setSelectedForDeletion,
+    setDeleteSelectAll,
+  ]);
+
+  const handleToggleDeleteSelection = useCallback(
+    (index: number) => {
+      setSelectedForDeletion((prev) => {
+        const newSelected = [...prev];
+        newSelected[index] = !newSelected[index];
+        return newSelected;
+      });
+    },
+    [setSelectedForDeletion]
+  );
+
+  const handleBatchDelete = useCallback(() => {
+    const indicesToDelete = selectedForDeletion
+      .map((selected, index) => (selected ? index : -1))
+      .filter((index) => index !== -1)
+      .reverse(); // Delete from end to maintain indices
+
+    if (indicesToDelete.length === 0) {
+      return;
+    }
+
+    // Store all deleted rows as a single batch
+    const deletedBatch: DeletedBatch = {
+      rows: indicesToDelete.reverse().map((index) => ({
+        // Reverse back to original order for restoration
+        data: editedFields[index],
+        checked: checkedFields[index],
+        index,
+      })),
+      timestamp: Date.now(),
+    };
+
+    setDeletedRows((prev) => [...prev, deletedBatch]);
+
+    // Remove all selected rows (still using reverse indices for deletion)
+    const reversedIndices = [...indicesToDelete].reverse();
+    setEditedFields((prev) => {
+      const newEditedFields = [...prev];
+      reversedIndices.forEach((index) => {
+        newEditedFields.splice(index, 1);
+      });
+      return newEditedFields;
+    });
+
+    setCheckedFields((prev) => {
+      const newCheckedFields = [...prev];
+      reversedIndices.forEach((index) => {
+        newCheckedFields.splice(index, 1);
+      });
+      return newCheckedFields;
+    });
+
+    // Clear delete selection
+    setSelectedForDeletion([]);
+    setDeleteSelectAll(false);
+    setShowUndoNotification(true);
+  }, [
+    selectedForDeletion,
+    editedFields,
+    checkedFields,
+    setEditedFields,
+    setCheckedFields,
+    setDeletedRows,
+    setSelectedForDeletion,
+    setDeleteSelectAll,
+    setShowUndoNotification,
+  ]);
 
   // Generation function
   const onGenerate = async () => {
@@ -740,6 +879,10 @@ const WerkBriefHome = () => {
             onTableExpandToggle={handleTableExpandToggle}
             onDownload={handleDownloadExcel}
             onCopy={handleCopyToExcel}
+            isDeleteMode={isDeleteMode}
+            onToggleDeleteMode={handleToggleDeleteMode}
+            onBatchDelete={handleBatchDelete}
+            selectedForDeletionCount={selectedForDeletionCount}
           />
 
           <TableFilters
@@ -783,6 +926,12 @@ const WerkBriefHome = () => {
             onDeleteRow={deleteRow}
             onMoveRow={moveRow}
             onClearSearch={handleClearSearch}
+            isDeleteMode={isDeleteMode}
+            deleteSelectAll={deleteSelectAll}
+            onToggleDeleteMode={handleToggleDeleteMode}
+            onDeleteSelectAll={handleDeleteSelectAll}
+            selectedForDeletion={selectedForDeletion}
+            onToggleDeleteSelection={handleToggleDeleteSelection}
           />
 
           <TableFooter

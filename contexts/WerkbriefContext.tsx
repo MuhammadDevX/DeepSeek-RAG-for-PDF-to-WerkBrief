@@ -28,6 +28,10 @@ interface DeletedRow {
   data: Werkbrief["fields"][0];
   checked: boolean;
   index: number;
+}
+
+interface DeletedBatch {
+  rows: DeletedRow[];
   timestamp: number;
 }
 
@@ -94,10 +98,20 @@ interface WerkbriefContextType {
   isUploadSectionCollapsed: boolean;
   setIsUploadSectionCollapsed: (collapsed: boolean) => void;
 
+  // Delete mode state
+  isDeleteMode: boolean;
+  setIsDeleteMode: (mode: boolean | ((prev: boolean) => boolean)) => void;
+  selectedForDeletion: boolean[];
+  setSelectedForDeletion: (
+    selected: boolean[] | ((prev: boolean[]) => boolean[])
+  ) => void;
+  deleteSelectAll: boolean;
+  setDeleteSelectAll: (select: boolean | ((prev: boolean) => boolean)) => void;
+
   // Deleted rows state
-  deletedRows: DeletedRow[];
+  deletedRows: DeletedBatch[];
   setDeletedRows: (
-    rows: DeletedRow[] | ((prev: DeletedRow[]) => DeletedRow[])
+    rows: DeletedBatch[] | ((prev: DeletedBatch[]) => DeletedBatch[])
   ) => void;
   showUndoNotification: boolean;
   setShowUndoNotification: (
@@ -176,8 +190,13 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
   const [isUploadSectionCollapsed, setIsUploadSectionCollapsed] =
     useState<boolean>(false);
 
+  // Delete mode state
+  const [isDeleteMode, setIsDeleteMode] = useState<boolean>(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState<boolean[]>([]);
+  const [deleteSelectAll, setDeleteSelectAll] = useState<boolean>(false);
+
   // Deleted rows state
-  const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
+  const [deletedRows, setDeletedRows] = useState<DeletedBatch[]>([]);
   const [showUndoNotification, setShowUndoNotification] = useState(false);
 
   // Edited data
@@ -205,6 +224,9 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
     setIsTableLoading(false);
     setBulkSelectAll(false);
     setIsUploadSectionCollapsed(false);
+    setIsDeleteMode(false);
+    setSelectedForDeletion([]);
+    setDeleteSelectAll(false);
     setDeletedRows([]);
     setShowUndoNotification(false);
     setEditedFields([]);
@@ -258,6 +280,14 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
       isUploadSectionCollapsed,
       setIsUploadSectionCollapsed,
 
+      // Delete mode state
+      isDeleteMode,
+      setIsDeleteMode,
+      selectedForDeletion,
+      setSelectedForDeletion,
+      deleteSelectAll,
+      setDeleteSelectAll,
+
       // Deleted rows state
       deletedRows,
       setDeletedRows,
@@ -296,6 +326,9 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
       isTableLoading,
       bulkSelectAll,
       isUploadSectionCollapsed,
+      isDeleteMode,
+      selectedForDeletion,
+      deleteSelectAll,
       deletedRows,
       showUndoNotification,
       editedFields,

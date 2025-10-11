@@ -26,6 +26,9 @@ export const WerkbriefSchema = z.object({
         description:
           "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
       }),
+      "Page Number": z.number({
+        description: "Page number from the PDF where this product was found",
+      }),
     })
   ),
 });

@@ -229,10 +229,15 @@ export async function generateWerkbrief(
       console.log(`Processing document ${index + 1}/${docs.length}...`);
 
       const docContent = doc.pageContent;
+      // Extract page number from document metadata (PDFLoader provides this as loc.pageNumber)
+      const pageNumber = doc.metadata?.loc?.pageNumber || index + 1;
+      console.log(`Document ${index + 1} is page ${pageNumber} of the PDF`);
+
       const productsStep = await generateWerkbriefStep(
         `${
           description || "Generate a werkbrief for the invoice."
-        }\n\nInvoice/PDF Context (extracted text):\n${docContent}`
+        }\n\nInvoice/PDF Context (extracted text):\n${docContent}`,
+        pageNumber
       );
 
       // Atomically increment the completed counter
@@ -293,7 +298,7 @@ export async function generateWerkbrief(
   }
 }
 
-export async function generateWerkbriefStep(text: string) {
+export async function generateWerkbriefStep(text: string, pageNumber?: number) {
   // Input validation
   if (!text || text.trim().length < 10) {
     console.warn("Text too short for processing:", text.length);
@@ -343,6 +348,12 @@ export async function generateWerkbriefStep(text: string) {
       temperature: 0,
     });
 
-    return werkBriefObj.fields || [];
+    // Add page number to all fields if provided
+    const fieldsWithPageNumber = (werkBriefObj.fields || []).map((field) => ({
+      ...field,
+      "Page Number": pageNumber || field["Page Number"],
+    }));
+
+    return fieldsWithPageNumber;
   });
 }

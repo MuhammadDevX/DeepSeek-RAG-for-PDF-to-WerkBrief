@@ -11,6 +11,7 @@ import {
   Check,
   Maximize2,
   Minimize2,
+  Trash2,
 } from "lucide-react";
 
 interface TableHeaderProps {
@@ -25,6 +26,10 @@ interface TableHeaderProps {
   onTableExpandToggle: () => void;
   onDownload: () => void;
   onCopy: () => void;
+  isDeleteMode?: boolean;
+  onToggleDeleteMode?: () => void;
+  onBatchDelete?: () => void;
+  selectedForDeletionCount?: number;
 }
 
 export const TableHeader = React.memo(
@@ -40,6 +45,10 @@ export const TableHeader = React.memo(
     onTableExpandToggle,
     onDownload,
     onCopy,
+    isDeleteMode = false,
+    onToggleDeleteMode,
+    onBatchDelete,
+    selectedForDeletionCount = 0,
   }: TableHeaderProps) => {
     return (
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b border-gray-200 dark:border-gray-700 p-6">
@@ -93,30 +102,63 @@ export const TableHeader = React.memo(
             </button>
 
             <div className="flex items-center gap-2">
-              <Button
-                onClick={onDownload}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Download</span>
-              </Button>
-              <Button
-                onClick={onCopy}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-                <span className="hidden sm:inline">
-                  {copied ? "Copied!" : "Copy"}
-                </span>
-              </Button>
+              {isDeleteMode ? (
+                <>
+                  <Button
+                    onClick={onBatchDelete}
+                    variant="destructive"
+                    size="sm"
+                    className="flex items-center gap-2"
+                    disabled={selectedForDeletionCount === 0}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Selected ({selectedForDeletionCount})</span>
+                  </Button>
+                  <Button
+                    onClick={onToggleDeleteMode}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={onToggleDeleteMode}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Batch Delete</span>
+                  </Button>
+                  <Button
+                    onClick={onDownload}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Download</span>
+                  </Button>
+                  <Button
+                    onClick={onCopy}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {copied ? "Copied!" : "Copy"}
+                    </span>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

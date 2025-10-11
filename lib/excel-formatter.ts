@@ -1,5 +1,5 @@
 import { Werkbrief } from "@/lib/ai/schema";
-import * as XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 
 export function formatForExcel(werkbrief: Werkbrief): string {
   // Create Excel-compatible format with tab-separated values
@@ -49,6 +49,7 @@ export function formatSelectedFieldsForExcel(
     "STKS",
     "BRUTO",
     "FOB",
+    "Page",
   ];
 
   // Add headers
@@ -66,6 +67,7 @@ export function formatSelectedFieldsForExcel(
         field.STKS.toString(),
         field.BRUTO.toString(),
         field.FOB.toString(),
+        field["Page Number"]?.toString() || "-",
       ];
       excelData.push(row.join("\t"));
       rowNumber++;
@@ -116,11 +118,12 @@ export function downloadExcelFile(
     STKS: number;
     BRUTO: number;
     FOB: number;
+    Page: number | string;
   };
 
   // Prepare data for Excel export
   const exportData: ExportDataRow[] = [];
-  
+
   // Filter fields based on checked status
   let rowNumber = 1;
   fields.forEach((field, index) => {
@@ -133,6 +136,7 @@ export function downloadExcelFile(
         STKS: field.STKS,
         BRUTO: field.BRUTO,
         FOB: field.FOB,
+        Page: field["Page Number"] ?? "-",
       });
       rowNumber++;
     }
@@ -144,15 +148,16 @@ export function downloadExcelFile(
 
   // Auto-size columns for better readability
   const columnWidths = [
-    { wch: 8 },  // Number
+    { wch: 8 }, // Number
     { wch: 25 }, // GOEDEREN OMSCHRIJVING
     { wch: 15 }, // GOEDEREN CODE
-    { wch: 8 },  // CTNS
-    { wch: 8 },  // STKS
+    { wch: 8 }, // CTNS
+    { wch: 8 }, // STKS
     { wch: 10 }, // BRUTO
     { wch: 10 }, // FOB
+    { wch: 8 }, // Page
   ];
-  ws['!cols'] = columnWidths;
+  ws["!cols"] = columnWidths;
 
   // Add worksheet to workbook
   XLSX.utils.book_append_sheet(wb, ws, "Werkbrief Data");

@@ -16,6 +16,10 @@ interface TableHeaderRowProps {
   bulkSelectAll: boolean;
   onSort: (key: keyof Werkbrief["fields"][0]) => void;
   onBulkSelectAll: () => void;
+  isDeleteMode?: boolean;
+  onToggleDeleteMode?: () => void;
+  deleteSelectAll?: boolean;
+  onDeleteSelectAll?: () => void;
 }
 
 export const TableHeaderRow = React.memo(
@@ -24,6 +28,10 @@ export const TableHeaderRow = React.memo(
     bulkSelectAll,
     onSort,
     onBulkSelectAll,
+    isDeleteMode = false,
+    onToggleDeleteMode,
+    deleteSelectAll = false,
+    onDeleteSelectAll,
   }: TableHeaderRowProps) => {
     const SortableHeader: React.FC<{
       sortKey: keyof Werkbrief["fields"][0];
@@ -55,13 +63,27 @@ export const TableHeaderRow = React.memo(
           <div className="flex items-center gap-1">
             <input
               type="checkbox"
-              checked={bulkSelectAll}
-              onChange={onBulkSelectAll}
-              className="w-3 h-3 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-1 dark:bg-gray-700 dark:border-gray-600"
-              title="Select/deselect all items on this page"
+              checked={isDeleteMode ? deleteSelectAll : bulkSelectAll}
+              onChange={isDeleteMode ? onDeleteSelectAll : onBulkSelectAll}
+              className={`w-3 h-3 ${
+                isDeleteMode
+                  ? "text-red-600 focus:ring-red-500 dark:focus:ring-red-600"
+                  : "text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600"
+              } bg-gray-100 border-gray-300 rounded focus:ring-1 dark:bg-gray-700 dark:border-gray-600`}
+              title={
+                isDeleteMode
+                  ? "Select/deselect all items for deletion"
+                  : "Select/deselect all items on this page"
+              }
             />
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-            <span className="hidden lg:inline">Excel</span>
+            <span
+              className={`w-2 h-2 ${
+                isDeleteMode ? "bg-red-500" : "bg-green-500"
+              } rounded-full`}
+            ></span>
+            <span className="hidden lg:inline">
+              {isDeleteMode ? "Del" : "Excel"}
+            </span>
           </div>
         </th>
         <th className="w-10 px-2 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
@@ -117,6 +139,15 @@ export const TableHeaderRow = React.memo(
         </SortableHeader>
         <th className="w-16 px-2 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
           Conf.
+        </th>
+        <SortableHeader
+          sortKey="Page Number"
+          className="w-16 px-2 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850"
+        >
+          <div className="flex items-center gap-1 justify-center">Page</div>
+        </SortableHeader>
+        <th className="w-20 px-2 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+          Search
         </th>
       </tr>
     );

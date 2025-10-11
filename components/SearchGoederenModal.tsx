@@ -29,11 +29,13 @@ interface SearchResult {
 interface SearchGoederenModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSelect?: (goederenCode: string, goederenOmschrijving: string) => void;
 }
 
 export function SearchGoederenModal({
   isOpen,
   onClose,
+  onSelect,
 }: SearchGoederenModalProps) {
   const [query, setQuery] = useState("");
   const [topK, setTopK] = useState("10");
@@ -341,6 +343,23 @@ export function SearchGoederenModal({
                             )}
                           </div>
                         </details>
+                      )}
+
+                      {/* Use button if onSelect callback is provided */}
+                      {onSelect && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <Button
+                            onClick={() =>
+                              onSelect(
+                                result.goederen_code,
+                                result.goederen_omschrijving
+                              )
+                            }
+                            className="w-full"
+                          >
+                            Use this Goederen
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
