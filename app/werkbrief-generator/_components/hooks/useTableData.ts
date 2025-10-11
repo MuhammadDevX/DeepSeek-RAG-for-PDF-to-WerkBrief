@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
 
@@ -8,6 +8,9 @@ type Werkbrief = z.infer<typeof WerkbriefSchema>;
 
 interface UseTableDataOptions {
   result: Werkbrief | null;
+  editedFields: Werkbrief["fields"];
+  setEditedFields: (fields: Werkbrief["fields"] | ((prev: Werkbrief["fields"]) => Werkbrief["fields"])) => void;
+  setCheckedFields: (fields: boolean[] | ((prev: boolean[]) => boolean[])) => void;
   searchTerm: string;
   sortConfig: {
     key: keyof Werkbrief["fields"][0] | null;
@@ -19,21 +22,21 @@ interface UseTableDataOptions {
 
 export const useTableData = ({
   result,
+  editedFields,
+  setEditedFields,
+  setCheckedFields,
   searchTerm,
   sortConfig,
   currentPage,
   itemsPerPage,
 }: UseTableDataOptions) => {
-  const [editedFields, setEditedFields] = useState<Werkbrief["fields"]>([]);
-  const [checkedFields, setCheckedFields] = useState<boolean[]>([]);
-
   // Initialize data when result changes
   useEffect(() => {
     if (result?.fields) {
       setEditedFields(result.fields);
       setCheckedFields(result.fields.map(() => true));
     }
-  }, [result]);
+  }, [result, setEditedFields, setCheckedFields]);
 
   // Memoized filtered and sorted data
   const filteredAndSortedFields = useMemo(() => {
@@ -85,8 +88,27 @@ export const useTableData = ({
 
   const totalPages = Math.ceil(filteredAndSortedFields.length / itemsPerPage);
 
-  // Memoized field change handler
+  // Memoized field change handler (without rounding)
   const handleFieldChange = useCallback(
+    (
+      index: number,
+      fieldName: keyof Werkbrief["fields"][0],
+      value: string | number
+    ) => {
+      setEditedFields((prev) => {
+        const newEditedFields = [...prev];
+        newEditedFields[index] = {
+          ...newEditedFields[index],
+          [fieldName]: value,
+        };
+        return newEditedFields;
+      });
+    },
+    [setEditedFields]
+  );
+
+  // Memoized field change handler with rounding (for Enter key)
+  const handleFieldChangeWithRounding = useCallback(
     (
       index: number,
       fieldName: keyof Werkbrief["fields"][0],
@@ -113,7 +135,7 @@ export const useTableData = ({
         return newEditedFields;
       });
     },
-    []
+    [setEditedFields]
   );
 
   // Memoized checkbox change handler
@@ -125,18 +147,15 @@ export const useTableData = ({
         return newCheckedFields;
       });
     },
-    []
+    [setCheckedFields]
   );
 
   return {
-    editedFields,
-    checkedFields,
     filteredAndSortedFields,
     paginatedFields,
     totalPages,
-    setEditedFields,
-    setCheckedFields,
     handleFieldChange,
+    handleFieldChangeWithRounding,
     handleCheckboxChange,
   };
 };

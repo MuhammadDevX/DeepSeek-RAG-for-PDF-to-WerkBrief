@@ -5,6 +5,8 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { SearchGoederenModal } from "@/components/SearchGoederenModal";
+import { WerkbriefStateIndicator } from "@/components/WerkbriefStateIndicator";
+import { ResetDataButton } from "@/components/ResetDataButton";
 import { Search } from "lucide-react";
 import { useState, useEffect } from "react";
 export default function HeroSectionOne() {
@@ -143,6 +145,7 @@ export const Navbar = () => {
           </Link>
         ) : (
           <div className="flex gap-2 lg:gap-3 items-center flex-wrap">
+            <WerkbriefStateIndicator />
             <Button
               variant="outline"
               onClick={() => setIsSearchModalOpen(true)}
@@ -174,6 +177,7 @@ export const Navbar = () => {
                 </Button>
               </Link>
             )}
+            <ResetDataButton />
             <UserButton />
           </div>
         )}

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Description } from "./_components/Description";
 import { WerkbriefProgress } from "./_components/WerkbriefProgress";
 import { FileUploadSection } from "./_components/FileUploadSection";
@@ -13,11 +13,11 @@ import { TableFooter } from "./_components/TableFooter";
 import { useTableData } from "./_components/hooks/useTableData";
 import { useKeyboardShortcuts } from "./_components/hooks/useKeyboardShortcuts";
 import { useBrutoManagement } from "./_components/hooks/useBrutoManagement";
+import { useWerkbrief } from "@/contexts/WerkbriefContext";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
 import {
   uploadFileToSpacesWithProgress,
-  UploadProgress,
 } from "@/lib/upload-utils";
 import {
   formatSelectedFieldsForExcel,
@@ -46,57 +46,81 @@ interface DeletedRow {
 }
 
 const WerkBriefHome = () => {
-  // Ref to track if we've already auto-collapsed the upload section
-  const hasAutoCollapsed = useRef(false);
+  // Get state from context
+  const {
+    // Ref to track if we've already auto-collapsed the upload section
+    hasAutoCollapsed,
+    
+    // Core state
+    pdfFile,
+    setPdfFile,
+    loading,
+    setLoading,
+    result,
+    setResult,
+    error,
+    setError,
+    copied,
+    setCopied,
+    progress,
+    setProgress,
+    useStreaming,
+    setUseStreaming,
+    lastFileKey,
+    setLastFileKey,
 
-  // Core state
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<Werkbrief | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [useStreaming, setUseStreaming] = useState(true);
-  const [lastFileKey, setLastFileKey] = useState<string | undefined>(undefined);
+    // Upload progress state
+    uploadProgress,
+    setUploadProgress,
+    isUploading,
+    setIsUploading,
 
-  // Upload progress state
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
-    null
-  );
-  const [isUploading, setIsUploading] = useState(false);
+    // UI state
+    searchTerm,
+    setSearchTerm,
+    currentPage,
+    setCurrentPage,
+    itemsPerPage,
+    setItemsPerPage,
+    sortConfig,
+    setSortConfig,
+    isTableExpanded,
+    setIsTableExpanded,
+    showFilters,
+    setShowFilters,
+    isTableLoading,
+    setIsTableLoading,
+    bulkSelectAll,
+    setBulkSelectAll,
+    isUploadSectionCollapsed,
+    setIsUploadSectionCollapsed,
 
-  // UI state
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(50);
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof Werkbrief["fields"][0] | null;
-    direction: "asc" | "desc";
-  }>({ key: null, direction: "asc" });
-  const [isTableExpanded, setIsTableExpanded] = useState<boolean>(false);
-  const [showFilters, setShowFilters] = useState<boolean>(true);
-  const [isTableLoading, setIsTableLoading] = useState<boolean>(false);
-  const [bulkSelectAll, setBulkSelectAll] = useState<boolean>(false);
-  const [isUploadSectionCollapsed, setIsUploadSectionCollapsed] =
-    useState<boolean>(false);
+    // Deleted rows state
+    deletedRows,
+    setDeletedRows,
+    showUndoNotification,
+    setShowUndoNotification,
 
-  // Deleted rows state
-  const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
-  const [showUndoNotification, setShowUndoNotification] = useState(false);
+    // Edited data
+    editedFields,
+    setEditedFields,
+    checkedFields,
+    setCheckedFields,
+  } = useWerkbrief();
 
   // Custom hooks
   const {
-    editedFields,
-    checkedFields,
     filteredAndSortedFields,
     paginatedFields,
     totalPages,
-    setEditedFields,
-    setCheckedFields,
     handleFieldChange,
+    handleFieldChangeWithRounding,
     handleCheckboxChange,
   } = useTableData({
     result,
+    editedFields,
+    setEditedFields,
+    setCheckedFields,
     searchTerm,
     sortConfig,
     currentPage,
@@ -130,7 +154,7 @@ const WerkBriefHome = () => {
       setIsUploadSectionCollapsed(true);
       hasAutoCollapsed.current = true;
     }
-  }, [hasTableData]);
+  }, [hasTableData, hasAutoCollapsed, setIsUploadSectionCollapsed]);
 
   // Memoize table expansion classes to prevent recalculation
   const tableContainerClasses = useMemo(
@@ -146,13 +170,13 @@ const WerkBriefHome = () => {
     (page: number) => {
       setCurrentPage(Math.max(1, Math.min(page, totalPages)));
     },
-    [totalPages]
+    [totalPages, setCurrentPage]
   );
 
   const handleItemsPerPageChange = useCallback((newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
-  }, []);
+  }, [setItemsPerPage, setCurrentPage]);
 
   // Sorting handlers - optimized
   const handleSort = useCallback((key: keyof Werkbrief["fields"][0]) => {
@@ -160,27 +184,27 @@ const WerkBriefHome = () => {
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
-  }, []);
+  }, [setSortConfig]);
 
   const handleSortClear = useCallback(() => {
     setSortConfig({ key: null, direction: "asc" });
-  }, []);
+  }, [setSortConfig]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
-  }, []);
+  }, [setSearchTerm]);
 
   const handleFiltersToggle = useCallback(() => {
     setShowFilters((prev) => !prev);
-  }, []);
+  }, [setShowFilters]);
 
   const handleTableExpandToggle = useCallback(() => {
     setIsTableExpanded((prev) => !prev);
-  }, []);
+  }, [setIsTableExpanded]);
 
   const handleClearSearch = useCallback(() => {
     setSearchTerm("");
-  }, []);
+  }, [setSearchTerm]);
 
   // Bulk selection handlers - optimized
   const handleBulkSelectAll = useCallback(() => {
@@ -201,7 +225,7 @@ const WerkBriefHome = () => {
 
       return newCheckedFields;
     });
-  }, [bulkSelectAll, paginatedFields, editedFields, setCheckedFields]);
+  }, [bulkSelectAll, paginatedFields, editedFields, setCheckedFields, setBulkSelectAll]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -218,12 +242,12 @@ const WerkBriefHome = () => {
   const createDummyRow = useCallback(
     (): Werkbrief["fields"][0] => ({
       "Item Description": "New Product Description",
-      "GOEDEREN OMSCHRIJVING": "NIEUWE GOEDEREN",
+      "GOEDEREN OMSCHRIJVING": "Product Description",
       "GOEDEREN CODE": "00000000",
       CTNS: 1.0,
       STKS: 1.0,
       BRUTO: 1.0,
-      FOB: 100.0,
+      FOB: 0.0,
       Confidence: "100%",
     }),
     []
@@ -297,7 +321,7 @@ const WerkBriefHome = () => {
 
       setShowUndoNotification(true);
     },
-    [editedFields, checkedFields, setEditedFields, setCheckedFields]
+    [editedFields, checkedFields, setEditedFields, setCheckedFields, setDeletedRows, setShowUndoNotification]
   );
 
   const undoLastDeletion = useCallback(() => {
@@ -321,11 +345,11 @@ const WerkBriefHome = () => {
 
     setDeletedRows((prev) => prev.slice(0, -1));
     setShowUndoNotification(false);
-  }, [deletedRows, setEditedFields, setCheckedFields]);
+  }, [deletedRows, setEditedFields, setCheckedFields, setDeletedRows, setShowUndoNotification]);
 
   const handleUndoDismiss = useCallback(() => {
     setShowUndoNotification(false);
-  }, []);
+  }, [setShowUndoNotification]);
 
   // Generation function
   const onGenerate = async () => {
@@ -570,7 +594,7 @@ const WerkBriefHome = () => {
     } catch (error) {
       console.error("Failed to copy to clipboard:", error);
     }
-  }, [editedFields, checkedFields]);
+  }, [editedFields, checkedFields, setCopied]);
 
   const handleDownloadExcel = useCallback(() => {
     if (!editedFields || editedFields.length === 0) return;
@@ -728,6 +752,7 @@ const WerkBriefHome = () => {
             onBulkSelectAll={handleBulkSelectAll}
             onCheckboxChange={handleCheckboxChange}
             onFieldChange={handleFieldChange}
+            onFieldChangeWithRounding={handleFieldChangeWithRounding}
             onInsertRow={insertRowAt}
             onDeleteRow={deleteRow}
             onMoveRow={moveRow}
