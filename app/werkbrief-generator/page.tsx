@@ -16,9 +16,7 @@ import { useBrutoManagement } from "./_components/hooks/useBrutoManagement";
 import { useWerkbrief } from "@/contexts/WerkbriefContext";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
-import {
-  uploadFileToSpacesWithProgress,
-} from "@/lib/upload-utils";
+import { uploadFileToSpacesWithProgress } from "@/lib/upload-utils";
 import {
   formatSelectedFieldsForExcel,
   copyToClipboard,
@@ -50,7 +48,7 @@ const WerkBriefHome = () => {
   const {
     // Ref to track if we've already auto-collapsed the upload section
     hasAutoCollapsed,
-    
+
     // Core state
     pdfFile,
     setPdfFile,
@@ -114,11 +112,11 @@ const WerkBriefHome = () => {
     paginatedFields,
     totalPages,
     handleFieldChange,
-    handleFieldChangeWithRounding,
     handleCheckboxChange,
   } = useTableData({
     result,
     editedFields,
+    checkedFields,
     setEditedFields,
     setCheckedFields,
     searchTerm,
@@ -173,26 +171,36 @@ const WerkBriefHome = () => {
     [totalPages, setCurrentPage]
   );
 
-  const handleItemsPerPageChange = useCallback((newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1);
-  }, [setItemsPerPage, setCurrentPage]);
+  const handleItemsPerPageChange = useCallback(
+    (newItemsPerPage: number) => {
+      setItemsPerPage(newItemsPerPage);
+      setCurrentPage(1);
+    },
+    [setItemsPerPage, setCurrentPage]
+  );
 
   // Sorting handlers - optimized
-  const handleSort = useCallback((key: keyof Werkbrief["fields"][0]) => {
-    setSortConfig((prev) => ({
-      key,
-      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
-    }));
-  }, [setSortConfig]);
+  const handleSort = useCallback(
+    (key: keyof Werkbrief["fields"][0]) => {
+      setSortConfig((prev) => ({
+        key,
+        direction:
+          prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+      }));
+    },
+    [setSortConfig]
+  );
 
   const handleSortClear = useCallback(() => {
     setSortConfig({ key: null, direction: "asc" });
   }, [setSortConfig]);
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchTerm(value);
-  }, [setSearchTerm]);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchTerm(value);
+    },
+    [setSearchTerm]
+  );
 
   const handleFiltersToggle = useCallback(() => {
     setShowFilters((prev) => !prev);
@@ -225,7 +233,13 @@ const WerkBriefHome = () => {
 
       return newCheckedFields;
     });
-  }, [bulkSelectAll, paginatedFields, editedFields, setCheckedFields, setBulkSelectAll]);
+  }, [
+    bulkSelectAll,
+    paginatedFields,
+    editedFields,
+    setCheckedFields,
+    setBulkSelectAll,
+  ]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -321,7 +335,14 @@ const WerkBriefHome = () => {
 
       setShowUndoNotification(true);
     },
-    [editedFields, checkedFields, setEditedFields, setCheckedFields, setDeletedRows, setShowUndoNotification]
+    [
+      editedFields,
+      checkedFields,
+      setEditedFields,
+      setCheckedFields,
+      setDeletedRows,
+      setShowUndoNotification,
+    ]
   );
 
   const undoLastDeletion = useCallback(() => {
@@ -345,7 +366,13 @@ const WerkBriefHome = () => {
 
     setDeletedRows((prev) => prev.slice(0, -1));
     setShowUndoNotification(false);
-  }, [deletedRows, setEditedFields, setCheckedFields, setDeletedRows, setShowUndoNotification]);
+  }, [
+    deletedRows,
+    setEditedFields,
+    setCheckedFields,
+    setDeletedRows,
+    setShowUndoNotification,
+  ]);
 
   const handleUndoDismiss = useCallback(() => {
     setShowUndoNotification(false);
@@ -752,7 +779,6 @@ const WerkBriefHome = () => {
             onBulkSelectAll={handleBulkSelectAll}
             onCheckboxChange={handleCheckboxChange}
             onFieldChange={handleFieldChange}
-            onFieldChangeWithRounding={handleFieldChangeWithRounding}
             onInsertRow={insertRowAt}
             onDeleteRow={deleteRow}
             onMoveRow={moveRow}

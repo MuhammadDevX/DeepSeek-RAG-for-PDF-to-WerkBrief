@@ -7,8 +7,8 @@ export const ResetDataButton: React.FC = () => {
   const { resetAllState } = useWerkbrief();
 
   return (
-    <Button 
-      variant="outline" 
+    <Button
+      variant="outline"
       onClick={resetAllState}
       className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
     >

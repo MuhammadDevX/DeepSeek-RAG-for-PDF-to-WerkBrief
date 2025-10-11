@@ -1,5 +1,12 @@
 "use client";
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
 import { UploadProgress } from "@/lib/upload-utils";
@@ -60,18 +67,24 @@ interface WerkbriefContextType {
     key: keyof Werkbrief["fields"][0] | null;
     direction: "asc" | "desc";
   };
-  setSortConfig: (config: {
-    key: keyof Werkbrief["fields"][0] | null;
-    direction: "asc" | "desc";
-  } | ((prev: {
-    key: keyof Werkbrief["fields"][0] | null;
-    direction: "asc" | "desc";
-  }) => {
-    key: keyof Werkbrief["fields"][0] | null;
-    direction: "asc" | "desc";
-  })) => void;
+  setSortConfig: (
+    config:
+      | {
+          key: keyof Werkbrief["fields"][0] | null;
+          direction: "asc" | "desc";
+        }
+      | ((prev: {
+          key: keyof Werkbrief["fields"][0] | null;
+          direction: "asc" | "desc";
+        }) => {
+          key: keyof Werkbrief["fields"][0] | null;
+          direction: "asc" | "desc";
+        })
+  ) => void;
   isTableExpanded: boolean;
-  setIsTableExpanded: (expanded: boolean | ((prev: boolean) => boolean)) => void;
+  setIsTableExpanded: (
+    expanded: boolean | ((prev: boolean) => boolean)
+  ) => void;
   showFilters: boolean;
   setShowFilters: (show: boolean | ((prev: boolean) => boolean)) => void;
   isTableLoading: boolean;
@@ -83,15 +96,25 @@ interface WerkbriefContextType {
 
   // Deleted rows state
   deletedRows: DeletedRow[];
-  setDeletedRows: (rows: DeletedRow[] | ((prev: DeletedRow[]) => DeletedRow[])) => void;
+  setDeletedRows: (
+    rows: DeletedRow[] | ((prev: DeletedRow[]) => DeletedRow[])
+  ) => void;
   showUndoNotification: boolean;
-  setShowUndoNotification: (show: boolean | ((prev: boolean) => boolean)) => void;
+  setShowUndoNotification: (
+    show: boolean | ((prev: boolean) => boolean)
+  ) => void;
 
   // Edited data
   editedFields: Werkbrief["fields"];
-  setEditedFields: (fields: Werkbrief["fields"] | ((prev: Werkbrief["fields"]) => Werkbrief["fields"])) => void;
+  setEditedFields: (
+    fields:
+      | Werkbrief["fields"]
+      | ((prev: Werkbrief["fields"]) => Werkbrief["fields"])
+  ) => void;
   checkedFields: boolean[];
-  setCheckedFields: (fields: boolean[] | ((prev: boolean[]) => boolean[])) => void;
+  setCheckedFields: (
+    fields: boolean[] | ((prev: boolean[]) => boolean[])
+  ) => void;
 
   // Auto-collapse tracking
   hasAutoCollapsed: React.MutableRefObject<boolean>;
@@ -100,12 +123,14 @@ interface WerkbriefContextType {
   resetAllState: () => void;
 }
 
-const WerkbriefContext = createContext<WerkbriefContextType | undefined>(undefined);
+const WerkbriefContext = createContext<WerkbriefContextType | undefined>(
+  undefined
+);
 
 export const useWerkbrief = () => {
   const context = useContext(WerkbriefContext);
   if (context === undefined) {
-    throw new Error('useWerkbrief must be used within a WerkbriefProvider');
+    throw new Error("useWerkbrief must be used within a WerkbriefProvider");
   }
   return context;
 };
@@ -114,7 +139,9 @@ interface WerkbriefProviderProps {
   children: React.ReactNode;
 }
 
-export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({ children }) => {
+export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
+  children,
+}) => {
   // Ref to track if we've already auto-collapsed the upload section
   const hasAutoCollapsed = useRef(false);
 
@@ -129,7 +156,9 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({ children }
   const [lastFileKey, setLastFileKey] = useState<string | undefined>(undefined);
 
   // Upload progress state
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
+    null
+  );
   const [isUploading, setIsUploading] = useState(false);
 
   // UI state
@@ -144,7 +173,8 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({ children }
   const [showFilters, setShowFilters] = useState<boolean>(true);
   const [isTableLoading, setIsTableLoading] = useState<boolean>(false);
   const [bulkSelectAll, setBulkSelectAll] = useState<boolean>(false);
-  const [isUploadSectionCollapsed, setIsUploadSectionCollapsed] = useState<boolean>(false);
+  const [isUploadSectionCollapsed, setIsUploadSectionCollapsed] =
+    useState<boolean>(false);
 
   // Deleted rows state
   const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
@@ -182,75 +212,97 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({ children }
     hasAutoCollapsed.current = false;
   }, []);
 
-  const contextValue = useMemo(() => ({
-    // Core state
-    pdfFile,
-    setPdfFile,
-    loading,
-    setLoading,
-    result,
-    setResult,
-    error,
-    setError,
-    copied,
-    setCopied,
-    progress,
-    setProgress,
-    useStreaming,
-    setUseStreaming,
-    lastFileKey,
-    setLastFileKey,
+  const contextValue = useMemo(
+    () => ({
+      // Core state
+      pdfFile,
+      setPdfFile,
+      loading,
+      setLoading,
+      result,
+      setResult,
+      error,
+      setError,
+      copied,
+      setCopied,
+      progress,
+      setProgress,
+      useStreaming,
+      setUseStreaming,
+      lastFileKey,
+      setLastFileKey,
 
-    // Upload progress state
-    uploadProgress,
-    setUploadProgress,
-    isUploading,
-    setIsUploading,
+      // Upload progress state
+      uploadProgress,
+      setUploadProgress,
+      isUploading,
+      setIsUploading,
 
-    // UI state
-    searchTerm,
-    setSearchTerm,
-    currentPage,
-    setCurrentPage,
-    itemsPerPage,
-    setItemsPerPage,
-    sortConfig,
-    setSortConfig,
-    isTableExpanded,
-    setIsTableExpanded,
-    showFilters,
-    setShowFilters,
-    isTableLoading,
-    setIsTableLoading,
-    bulkSelectAll,
-    setBulkSelectAll,
-    isUploadSectionCollapsed,
-    setIsUploadSectionCollapsed,
+      // UI state
+      searchTerm,
+      setSearchTerm,
+      currentPage,
+      setCurrentPage,
+      itemsPerPage,
+      setItemsPerPage,
+      sortConfig,
+      setSortConfig,
+      isTableExpanded,
+      setIsTableExpanded,
+      showFilters,
+      setShowFilters,
+      isTableLoading,
+      setIsTableLoading,
+      bulkSelectAll,
+      setBulkSelectAll,
+      isUploadSectionCollapsed,
+      setIsUploadSectionCollapsed,
 
-    // Deleted rows state
-    deletedRows,
-    setDeletedRows,
-    showUndoNotification,
-    setShowUndoNotification,
+      // Deleted rows state
+      deletedRows,
+      setDeletedRows,
+      showUndoNotification,
+      setShowUndoNotification,
 
-    // Edited data
-    editedFields,
-    setEditedFields,
-    checkedFields,
-    setCheckedFields,
+      // Edited data
+      editedFields,
+      setEditedFields,
+      checkedFields,
+      setCheckedFields,
 
-    // Auto-collapse tracking
-    hasAutoCollapsed,
+      // Auto-collapse tracking
+      hasAutoCollapsed,
 
-    // Reset function
-    resetAllState,
-  }), [
-    pdfFile, loading, result, error, copied, progress, useStreaming, lastFileKey,
-    uploadProgress, isUploading, searchTerm, currentPage, itemsPerPage,
-    sortConfig, isTableExpanded, showFilters, isTableLoading, bulkSelectAll,
-    isUploadSectionCollapsed, deletedRows, showUndoNotification,
-    editedFields, checkedFields, resetAllState
-  ]);
+      // Reset function
+      resetAllState,
+    }),
+    [
+      pdfFile,
+      loading,
+      result,
+      error,
+      copied,
+      progress,
+      useStreaming,
+      lastFileKey,
+      uploadProgress,
+      isUploading,
+      searchTerm,
+      currentPage,
+      itemsPerPage,
+      sortConfig,
+      isTableExpanded,
+      showFilters,
+      isTableLoading,
+      bulkSelectAll,
+      isUploadSectionCollapsed,
+      deletedRows,
+      showUndoNotification,
+      editedFields,
+      checkedFields,
+      resetAllState,
+    ]
+  );
 
   return (
     <WerkbriefContext.Provider value={contextValue}>

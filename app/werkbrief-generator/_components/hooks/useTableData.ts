@@ -9,8 +9,15 @@ type Werkbrief = z.infer<typeof WerkbriefSchema>;
 interface UseTableDataOptions {
   result: Werkbrief | null;
   editedFields: Werkbrief["fields"];
-  setEditedFields: (fields: Werkbrief["fields"] | ((prev: Werkbrief["fields"]) => Werkbrief["fields"])) => void;
-  setCheckedFields: (fields: boolean[] | ((prev: boolean[]) => boolean[])) => void;
+  checkedFields: boolean[];
+  setEditedFields: (
+    fields:
+      | Werkbrief["fields"]
+      | ((prev: Werkbrief["fields"]) => Werkbrief["fields"])
+  ) => void;
+  setCheckedFields: (
+    fields: boolean[] | ((prev: boolean[]) => boolean[])
+  ) => void;
   searchTerm: string;
   sortConfig: {
     key: keyof Werkbrief["fields"][0] | null;
@@ -23,6 +30,7 @@ interface UseTableDataOptions {
 export const useTableData = ({
   result,
   editedFields,
+  checkedFields,
   setEditedFields,
   setCheckedFields,
   searchTerm,
@@ -88,27 +96,8 @@ export const useTableData = ({
 
   const totalPages = Math.ceil(filteredAndSortedFields.length / itemsPerPage);
 
-  // Memoized field change handler (without rounding)
+  // Memoized field change handler
   const handleFieldChange = useCallback(
-    (
-      index: number,
-      fieldName: keyof Werkbrief["fields"][0],
-      value: string | number
-    ) => {
-      setEditedFields((prev) => {
-        const newEditedFields = [...prev];
-        newEditedFields[index] = {
-          ...newEditedFields[index],
-          [fieldName]: value,
-        };
-        return newEditedFields;
-      });
-    },
-    [setEditedFields]
-  );
-
-  // Memoized field change handler with rounding (for Enter key)
-  const handleFieldChangeWithRounding = useCallback(
     (
       index: number,
       fieldName: keyof Werkbrief["fields"][0],
@@ -155,7 +144,6 @@ export const useTableData = ({
     paginatedFields,
     totalPages,
     handleFieldChange,
-    handleFieldChangeWithRounding,
     handleCheckboxChange,
   };
 };

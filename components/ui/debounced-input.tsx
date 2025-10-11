@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 interface DebouncedInputProps {
   value: string | number;
   onChange: (value: string | number) => void;
-  onEnterPress?: (value: string | number) => void;
   delay?: number;
   type?: "text" | "number" | "textarea";
   step?: string;
@@ -17,7 +16,6 @@ const DebouncedInput = React.memo(
   ({
     value,
     onChange,
-    onEnterPress,
     delay = 300,
     type = "text",
     step,
@@ -70,16 +68,6 @@ const DebouncedInput = React.memo(
       []
     );
 
-    // Handle Enter key press
-    const handleKeyDown = useCallback(
-      (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        if (e.key === "Enter" && onEnterPress) {
-          onEnterPress(localValue);
-        }
-      },
-      [localValue, onEnterPress]
-    );
-
     if (type === "textarea") {
       return (
         <textarea
@@ -87,7 +75,6 @@ const DebouncedInput = React.memo(
           value={localValue}
           onChange={handleChange}
           onFocus={handleFocus}
-          onKeyDown={handleKeyDown}
           className={className}
           title={title}
           placeholder={placeholder}
@@ -102,7 +89,6 @@ const DebouncedInput = React.memo(
         value={localValue}
         onChange={handleChange}
         onFocus={handleFocus}
-        onKeyDown={handleKeyDown}
         step={step}
         className={className}
         title={title}

@@ -5,7 +5,9 @@ import { useWerkbrief } from "@/contexts/WerkbriefContext";
 export const WerkbriefStateIndicator: React.FC = () => {
   const { editedFields, result, isTableLoading } = useWerkbrief();
 
-  const hasData = (result && result.fields && result.fields.length > 0) || editedFields.length > 0;
+  const hasData =
+    (result && result.fields && result.fields.length > 0) ||
+    editedFields.length > 0;
 
   if (!hasData && !isTableLoading) {
     return null;

@@ -36,11 +36,6 @@ interface DataTableProps {
     fieldName: keyof Werkbrief["fields"][0],
     value: string | number
   ) => void;
-  onFieldChangeWithRounding: (
-    index: number,
-    fieldName: keyof Werkbrief["fields"][0],
-    value: string | number
-  ) => void;
   onInsertRow: (index: number) => void;
   onDeleteRow: (index: number) => void;
   onMoveRow: (fromIndex: number, toIndex: number) => void;
@@ -65,7 +60,6 @@ export const DataTable = React.memo(
     onBulkSelectAll,
     onCheckboxChange,
     onFieldChange,
-    onFieldChangeWithRounding,
     onInsertRow,
     onDeleteRow,
     onMoveRow,
@@ -111,7 +105,6 @@ export const DataTable = React.memo(
                       isChecked={isChecked}
                       onCheckboxChange={onCheckboxChange}
                       onFieldChange={onFieldChange}
-                      onFieldChangeWithRounding={onFieldChangeWithRounding}
                       onInsertRow={onInsertRow}
                       onDeleteRow={onDeleteRow}
                       onMoveRow={onMoveRow}
