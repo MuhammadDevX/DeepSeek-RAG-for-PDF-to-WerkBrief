@@ -10,6 +10,7 @@ interface DebouncedInputProps {
   className?: string;
   title?: string;
   placeholder?: string;
+  precision?: number; // Number of decimal places to format to
 }
 
 const DebouncedInput = React.memo(
@@ -22,15 +23,25 @@ const DebouncedInput = React.memo(
     className,
     title,
     placeholder,
+    precision,
   }: DebouncedInputProps) => {
     const [localValue, setLocalValue] = useState(value);
+    const [displayValue, setDisplayValue] = useState(String(value));
     const inputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const isEditingRef = useRef(false);
 
-    // Update local value when external value changes
+    // Update local value when external value changes (only when not editing)
     useEffect(() => {
-      setLocalValue(value);
-    }, [value]);
+      if (!isEditingRef.current) {
+        setLocalValue(value);
+        if (type === "number" && precision !== undefined) {
+          setDisplayValue(Number(value).toFixed(precision));
+        } else {
+          setDisplayValue(String(value));
+        }
+      }
+    }, [value, type, precision]);
 
     // Debounced onChange handler
     useEffect(() => {
@@ -45,8 +56,11 @@ const DebouncedInput = React.memo(
 
     const handleChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        isEditingRef.current = true;
+        const inputValue = e.target.value;
+        setDisplayValue(inputValue);
+
         if (type === "number") {
-          const inputValue = e.target.value;
           if (inputValue === "" || inputValue === "-") {
             setLocalValue(0);
           } else {
@@ -54,7 +68,7 @@ const DebouncedInput = React.memo(
             setLocalValue(isNaN(numValue) ? 0 : numValue);
           }
         } else {
-          setLocalValue(e.target.value);
+          setLocalValue(inputValue);
         }
       },
       [type]
@@ -63,18 +77,61 @@ const DebouncedInput = React.memo(
     // Auto-select content when field is focused
     const handleFocus = useCallback(
       (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        isEditingRef.current = true;
         e.target.select();
       },
       []
+    );
+
+    // Apply precision formatting on blur
+    const handleBlur = useCallback(() => {
+      isEditingRef.current = false;
+      if (type === "number" && precision !== undefined) {
+        const numValue = Number(localValue);
+        const formatted = numValue.toFixed(precision);
+        setDisplayValue(formatted);
+        // Update the actual value with the parsed number
+        const finalValue = parseFloat(formatted);
+        if (finalValue !== localValue) {
+          setLocalValue(finalValue);
+          onChange(finalValue);
+        }
+      }
+    }, [type, precision, localValue, onChange]);
+
+    // Handle Enter key to apply precision
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        if (e.key === "Enter") {
+          isEditingRef.current = false;
+          if (type === "number" && precision !== undefined) {
+            const numValue = Number(localValue);
+            const formatted = numValue.toFixed(precision);
+            setDisplayValue(formatted);
+            // Update the actual value with the parsed number
+            const finalValue = parseFloat(formatted);
+            if (finalValue !== localValue) {
+              setLocalValue(finalValue);
+              onChange(finalValue);
+            }
+          }
+          // Blur the input to trigger debounced save
+          if (inputRef.current) inputRef.current.blur();
+          if (textareaRef.current) textareaRef.current.blur();
+        }
+      },
+      [type, precision, localValue, onChange]
     );
 
     if (type === "textarea") {
       return (
         <textarea
           ref={textareaRef}
-          value={localValue}
+          value={displayValue}
           onChange={handleChange}
           onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           className={className}
           title={title}
           placeholder={placeholder}
@@ -86,9 +143,11 @@ const DebouncedInput = React.memo(
       <input
         ref={inputRef}
         type={type}
-        value={localValue}
+        value={displayValue}
         onChange={handleChange}
         onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         step={step}
         className={className}
         title={title}

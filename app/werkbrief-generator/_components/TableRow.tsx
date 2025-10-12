@@ -291,8 +291,9 @@ const TableRow = memo(
             <DebouncedInput
               type="number"
               step="1"
-              value={Number(field.CTNS).toFixed(0)}
+              value={Number(field.CTNS)}
               onChange={handleCTNSChange}
+              precision={0}
               className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/20 px-2 py-2 rounded-lg border border-orange-200 dark:border-orange-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-colors duration-150"
             />
           </td>
@@ -300,8 +301,9 @@ const TableRow = memo(
             <DebouncedInput
               type="number"
               step="1"
-              value={Number(field.STKS).toFixed(0)}
+              value={Number(field.STKS)}
               onChange={handleSTKSChange}
+              precision={0}
               className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-purple-50 dark:bg-purple-900/20 px-2 py-2 rounded-lg border border-purple-200 dark:border-purple-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-colors duration-150"
             />
           </td>
@@ -309,8 +311,9 @@ const TableRow = memo(
             <DebouncedInput
               type="number"
               step="0.1"
-              value={Number(field.BRUTO).toFixed(1)}
+              value={Number(field.BRUTO)}
               onChange={handleBRUTOChange}
+              precision={1}
               className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded-lg border border-green-200 dark:border-green-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-colors duration-150"
             />
           </td>
@@ -322,8 +325,9 @@ const TableRow = memo(
               <DebouncedInput
                 type="number"
                 step="0.01"
-                value={Number(field.FOB).toFixed(2)}
+                value={Number(field.FOB)}
                 onChange={handleFOBChange}
+                precision={2}
                 className={`w-full pl-4 text-sm font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded-lg border border-green-200 dark:border-green-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-colors duration-150 ${
                   field.FOB === 0
                     ? "bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700"
