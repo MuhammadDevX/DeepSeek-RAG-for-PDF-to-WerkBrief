@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { openai } from "@/config/agents";
-import { ProductsBoughtSchema, WerkbriefSchema } from "./schema";
+import { ProductsBoughtSchema, WerkbriefSchema, Werkbrief } from "./schema";
 import { productsAnalyzerPrompt, werkbriefSystemPrompt } from "./prompt";
 import { retrieveRelevantSnippets } from "./tool-pinecone";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
@@ -133,6 +133,61 @@ async function processBatches<T, R>(
   }
 
   return results;
+}
+
+/**
+ * Consolidate products with the same goederen code on the same page
+ * by summing their numeric values (CTNS, STKS, BRUTO, FOB)
+ */
+function consolidateProductsByPageAndCode(
+  fields: Werkbrief["fields"]
+): Werkbrief["fields"] {
+  // Group by page number and goederen code
+  const groupMap = new Map<
+    string,
+    Werkbrief["fields"][0] & { count: number }
+  >();
+
+  fields.forEach((field) => {
+    const pageNumber = field["Page Number"];
+    const goederenCode = field["GOEDEREN CODE"];
+    const key = `${pageNumber}-${goederenCode}`;
+
+    if (groupMap.has(key)) {
+      // Product already exists, add values
+      const existing = groupMap.get(key)!;
+      existing.CTNS += field.CTNS;
+      existing.STKS += field.STKS;
+      existing.BRUTO += field.BRUTO;
+      existing.FOB += field.FOB;
+      existing.count += 1;
+
+      // Keep the longer/more detailed item description
+      if (
+        field["Item Description"].length > existing["Item Description"].length
+      ) {
+        existing["Item Description"] = field["Item Description"];
+      }
+
+      console.log(
+        `Consolidated duplicate: Page ${pageNumber}, Code ${goederenCode} (${existing.count} instances)`
+      );
+    } else {
+      // First occurrence of this page-code combination
+      groupMap.set(key, {
+        ...field,
+        count: 1,
+      });
+    }
+  });
+
+  // Convert map back to array, removing the count field
+  const consolidated = Array.from(groupMap.values()).map(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ({ count, ...field }) => field
+  );
+
+  return consolidated;
 }
 
 export async function generateWerkbrief(
@@ -273,18 +328,25 @@ export async function generateWerkbrief(
       `Parallel processing completed. Total fields extracted: ${fields.length}`
     );
 
+    // Consolidate products with same goederen code on the same page
+    const consolidatedFields = consolidateProductsByPageAndCode(fields);
+
+    console.log(
+      `After consolidation: ${consolidatedFields.length} entries (reduced from ${fields.length})`
+    );
+
     if (!isProcessingComplete) {
       safeProgress({
         type: "complete",
-        data: { fields },
-        currentStep: `Processing complete! Generated ${fields.length} werkbrief entries`,
+        data: { fields: consolidatedFields },
+        currentStep: `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length})`,
         totalDocuments: docs.length,
         processedDocuments: docs.length,
       });
       isProcessingComplete = true;
     }
 
-    return { fields };
+    return { fields: consolidatedFields };
   } catch (error) {
     console.error("Parallel processing failed:", error);
     if (!isProcessingComplete) {
