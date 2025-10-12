@@ -12,6 +12,7 @@ import {
   Maximize2,
   Minimize2,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 interface TableHeaderProps {
@@ -21,6 +22,8 @@ interface TableHeaderProps {
   totalFilteredItems: number;
   totalItems: number;
   copied: boolean;
+  missingPages?: number[]; // Optional for backwards compatibility when result is null
+  totalPages?: number; // Total pages in PDF
   onSearchChange: (value: string) => void;
   onFiltersToggle: () => void;
   onTableExpandToggle: () => void;
@@ -40,6 +43,8 @@ export const TableHeader = React.memo(
     totalFilteredItems,
     totalItems,
     copied,
+    missingPages,
+    totalPages,
     onSearchChange,
     onFiltersToggle,
     onTableExpandToggle,
@@ -70,10 +75,36 @@ export const TableHeader = React.memo(
                 )}
               </button>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {totalFilteredItems} of {totalItems} items
-              {searchTerm && ` matching "${searchTerm}"`}
-            </p>
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {totalFilteredItems} of {totalItems} items
+                {searchTerm && ` matching "${searchTerm}"`}
+              </p>
+              {missingPages !== undefined && (
+                <>
+                  {missingPages.length > 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-md border border-amber-200 dark:border-amber-800">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>
+                        <strong>Missing Pages:</strong>{" "}
+                        {missingPages.sort((a, b) => a - b).join(", ")}
+                        {totalPages !== undefined && ` (${missingPages.length} of ${totalPages} pages could not be processed)`}
+                        {totalPages === undefined && ` (${missingPages.length} page${missingPages.length !== 1 ? "s" : ""} could not be processed)`}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-md border border-green-200 dark:border-green-800">
+                      <Check className="w-4 h-4 flex-shrink-0" />
+                      <span>
+                        <strong>All pages processed successfully</strong>
+                        {totalPages !== undefined && ` - ${totalPages} page${totalPages !== 1 ? "s" : ""} processed`}
+                        {totalPages === undefined && " - No missing pages"}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Search and Controls */}

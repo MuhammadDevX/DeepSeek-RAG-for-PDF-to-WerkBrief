@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { openai } from "@/config/agents";
-import { ProductsBoughtSchema, WerkbriefSchema, Werkbrief } from "./schema";
+import { ProductsBoughtSchema, ProductFieldsSchema, WerkbriefSchema, Werkbrief } from "./schema";
 import { productsAnalyzerPrompt, werkbriefSystemPrompt } from "./prompt";
 import { retrieveRelevantSnippets } from "./tool-pinecone";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
@@ -253,9 +253,9 @@ export async function generateWerkbrief(
 
   if (docs.length === 0) {
     console.log("No documents to process");
-    safeProgress({ type: "complete", data: { fields: [] } });
+    safeProgress({ type: "complete", data: { fields: [], missingPages: [], totalPages: 0 } });
     isProcessingComplete = true;
-    return { fields: [] };
+    return { fields: [], missingPages: [], totalPages: 0 };
   }
 
   console.log(`Starting parallel processing of ${docs.length} documents...`);
@@ -271,6 +271,18 @@ export async function generateWerkbrief(
   try {
     // Create an atomic counter for real-time progress tracking in parallel processing
     let completedDocuments = 0;
+    
+    // Track all page numbers and successfully processed pages
+    const allPageNumbers = new Set<number>();
+    const successfullyProcessedPages = new Set<number>();
+    
+    // First, collect all page numbers from the PDF
+    docs.forEach((doc, index) => {
+      const pageNumber = doc.metadata?.loc?.pageNumber || index + 1;
+      allPageNumbers.add(pageNumber);
+    });
+    
+    console.log(`Total pages in PDF: ${allPageNumbers.size}`);
 
     // Process documents in parallel batches with atomic progress tracking
     const allFields = await processBatches(docs, async (doc, index) => {
@@ -288,38 +300,75 @@ export async function generateWerkbrief(
       const pageNumber = doc.metadata?.loc?.pageNumber || index + 1;
       console.log(`Document ${index + 1} is page ${pageNumber} of the PDF`);
 
-      const productsStep = await generateWerkbriefStep(
-        `${
-          description || "Generate a werkbrief for the invoice."
-        }\n\nInvoice/PDF Context (extracted text):\n${docContent}`,
-        pageNumber
-      );
+      try {
+        const productsStep = await generateWerkbriefStep(
+          `${
+            description || "Generate a werkbrief for the invoice."
+          }\n\nInvoice/PDF Context (extracted text):\n${docContent}`,
+          pageNumber
+        );
 
-      // Atomically increment the completed counter
-      completedDocuments++;
-      const currentCompleted = completedDocuments;
+        // Mark this page as successfully processed
+        successfullyProcessedPages.add(pageNumber);
 
-      console.log(
-        `Document ${index + 1} processed successfully, found ${
-          productsStep?.length || 0
-        } fields. Total completed: ${currentCompleted}/${docs.length}`
-      );
+        // Atomically increment the completed counter
+        completedDocuments++;
+        const currentCompleted = completedDocuments;
 
-      if (!isProcessingComplete) {
-        safeProgress({
-          type: "progress",
-          currentStep: `Completed ${currentCompleted} of ${
-            docs.length
-          } documents. Found ${
+        console.log(
+          `Document ${index + 1} processed successfully, found ${
             productsStep?.length || 0
-          } products in this document`,
-          totalDocuments: docs.length,
-          processedDocuments: currentCompleted,
-        });
-      }
+          } fields. Total completed: ${currentCompleted}/${docs.length}`
+        );
 
-      return productsStep || [];
+        if (!isProcessingComplete) {
+          safeProgress({
+            type: "progress",
+            currentStep: `Completed ${currentCompleted} of ${
+              docs.length
+            } documents. Found ${
+              productsStep?.length || 0
+            } products in this document`,
+            totalDocuments: docs.length,
+            processedDocuments: currentCompleted,
+          });
+        }
+
+        return productsStep || [];
+      } catch (error) {
+        // Page failed - it will NOT be in successfullyProcessedPages
+        console.error(
+          `Failed to process page ${pageNumber}:`,
+          error instanceof Error ? error.message : "Unknown error"
+        );
+
+        // Still increment the completed counter
+        completedDocuments++;
+
+        if (!isProcessingComplete) {
+          safeProgress({
+            type: "progress",
+            currentStep: `Page ${pageNumber} could not be processed. Continuing with remaining pages... (${completedDocuments}/${docs.length})`,
+            totalDocuments: docs.length,
+            processedDocuments: completedDocuments,
+          });
+        }
+
+        return [];
+      }
     });
+
+    // Calculate missing pages efficiently: all pages - successfully processed pages
+    const missingPages = Array.from(allPageNumbers)
+      .filter(pageNum => !successfullyProcessedPages.has(pageNum))
+      .sort((a, b) => a - b);
+
+    console.log(`Successfully processed pages: ${successfullyProcessedPages.size}/${allPageNumbers.size}`);
+    if (missingPages.length > 0) {
+      console.warn(
+        `Missing pages: ${missingPages.join(", ")} (${missingPages.length} out of ${allPageNumbers.size} total pages)`
+      );
+    }
 
     // Flatten all fields from all documents
     const fields = allFields.flat();
@@ -336,17 +385,22 @@ export async function generateWerkbrief(
     );
 
     if (!isProcessingComplete) {
+      const completionMessage =
+        missingPages.length > 0
+          ? `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length}). ${missingPages.length} of ${allPageNumbers.size} pages could not be processed.`
+          : `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length}). All ${allPageNumbers.size} pages processed successfully.`;
+
       safeProgress({
         type: "complete",
-        data: { fields: consolidatedFields },
-        currentStep: `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length})`,
+        data: { fields: consolidatedFields, missingPages, totalPages: allPageNumbers.size },
+        currentStep: completionMessage,
         totalDocuments: docs.length,
         processedDocuments: docs.length,
       });
       isProcessingComplete = true;
     }
 
-    return { fields: consolidatedFields };
+    return { fields: consolidatedFields, missingPages, totalPages: allPageNumbers.size };
   } catch (error) {
     console.error("Parallel processing failed:", error);
     if (!isProcessingComplete) {
@@ -406,14 +460,15 @@ export async function generateWerkbriefStep(text: string, pageNumber?: number) {
         .join("\n\n")}\n. Here are the relevant snippets:\n${retrieved
         .map((r, i) => `(${i + 1}) ${r}`)
         .join("\n")}`,
-      schema: WerkbriefSchema,
+      schema: ProductFieldsSchema, // AI model only generates fields, not metadata
       temperature: 0,
     });
 
-    // Add page number to all fields if provided
+    // Agent assigns page number to all fields based on PDF structure
+    // Model doesn't extract page numbers - they're not in the PDF content!
     const fieldsWithPageNumber = (werkBriefObj.fields || []).map((field) => ({
       ...field,
-      "Page Number": pageNumber || field["Page Number"],
+      "Page Number": pageNumber ?? 0, // Agent provides the page number
     }));
 
     return fieldsWithPageNumber;

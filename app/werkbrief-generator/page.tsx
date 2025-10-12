@@ -272,7 +272,7 @@ const WerkBriefHome = () => {
   const createDummyRow = useCallback(
     (): Werkbrief["fields"][0] => ({
       "Item Description": "New Product Description",
-      "GOEDEREN OMSCHRIJVING": "Product Description",
+      "GOEDEREN OMSCHRIJVING": "",
       "GOEDEREN CODE": "00000000",
       CTNS: 1.0,
       STKS: 1.0,
@@ -874,6 +874,8 @@ const WerkBriefHome = () => {
             totalFilteredItems={totalFilteredItems}
             totalItems={editedFields.length}
             copied={copied}
+            missingPages={result?.missingPages}
+            totalPages={result?.totalPages}
             onSearchChange={handleSearchChange}
             onFiltersToggle={handleFiltersToggle}
             onTableExpandToggle={handleTableExpandToggle}
