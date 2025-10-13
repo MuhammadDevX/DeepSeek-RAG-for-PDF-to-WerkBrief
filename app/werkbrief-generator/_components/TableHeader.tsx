@@ -89,7 +89,7 @@ export const TableHeader = React.memo(
                         <strong>Missing Pages:</strong>{" "}
                         {missingPages.sort((a, b) => a - b).join(", ")}
                         {totalPages !== undefined &&
-                          ` (${missingPages.length} of ${totalPages} pages could not be processed)`}
+                          ` (${missingPages.length} of ${totalPages + missingPages.length} pages could not be processed)`}
                         {totalPages === undefined &&
                           ` (${missingPages.length} page${
                             missingPages.length !== 1 ? "s" : ""

@@ -7,10 +7,10 @@ import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 
 // Parallelization and retry configuration constants
 const MAX_RETRIES = 5;
-const PARALLEL_BATCH_SIZE = 20;
-const DELAY_BETWEEN_BATCHES = 3000; // 3 seconds in milliseconds
+const PARALLEL_BATCH_SIZE = 15;
+const DELAY_BETWEEN_BATCHES = 1500; // 1.5 seconds in milliseconds
 const INITIAL_RETRY_DELAY = 1000; // 1 second initial delay for retries
-const MAX_RETRY_DELAY = 30000; // 30 seconds max delay for retries
+const MAX_RETRY_DELAY = 25000; // 25 seconds max delay for retries
 
 /**
  * Retry utility function with exponential backoff
