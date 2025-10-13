@@ -3,35 +3,38 @@
 ## ✅ Completed Tasks
 
 ### Task 1: Auto-Collapse Upload Section ✓
+
 **Status:** Already implemented and working  
 **Location:** `app/werkbrief-generator/page.tsx` lines 166-171  
 **Behavior:** Upload section automatically collapses when werkbrief data is generated (first time only)
 
 ### Task 2: Efficient Missing Pages Tracking ✓
+
 **Status:** Newly implemented with optimized algorithm  
 **Approach:** Set-based comparison for O(1) lookups
 
 ---
 
 ## Overview
+
 Added functionality to **efficiently** track and display pages that could not be processed during PDF extraction. The feature uses optimal data structures and always displays accurate processing status with precise page counts.
 
 ## Technical Implementation
 
 ### 1. Schema Update (`lib/ai/schema.ts`)
+
 Added two new required fields:
 
 ```typescript
 missingPages: z.array(z.number()).describe(
   "Page numbers that could not be processed due to extraction issues. Empty array if all pages processed successfully."
-)
+);
 
-totalPages: z.number().describe(
-  "Total number of pages in the PDF document"
-)
+totalPages: z.number().describe("Total number of pages in the PDF document");
 ```
 
 **Benefits:**
+
 - Always present (not optional)
 - Provides complete context
 - Enables accurate "X of Y" displays
@@ -41,24 +44,28 @@ totalPages: z.number().describe(
 ### 2. Efficient Algorithm (`lib/ai/agent.ts`)
 
 #### Data Structures Used
+
 ```typescript
-const allPageNumbers = new Set<number>();           // All pages in PDF
+const allPageNumbers = new Set<number>(); // All pages in PDF
 const successfullyProcessedPages = new Set<number>(); // Successfully processed
 ```
 
 #### Algorithm Steps
 
 **Step 1: Collect All Pages** (Upfront)
+
 ```typescript
 docs.forEach((doc, index) => {
   const pageNumber = doc.metadata?.loc?.pageNumber || index + 1;
   allPageNumbers.add(pageNumber);
 });
 ```
+
 - **Time Complexity:** O(n) where n = number of pages
 - **Space Complexity:** O(n)
 
 **Step 2: Track Successful Processing** (During Processing)
+
 ```typescript
 try {
   const productsStep = await generateWerkbriefStep(...);
@@ -69,14 +76,17 @@ try {
   return [];
 }
 ```
+
 - **Add Operation:** O(1) - Set provides constant-time insertion
 
 **Step 3: Calculate Missing Pages** (After Processing)
+
 ```typescript
 const missingPages = Array.from(allPageNumbers)
-  .filter(pageNum => !successfullyProcessedPages.has(pageNum))
+  .filter((pageNum) => !successfullyProcessedPages.has(pageNum))
   .sort((a, b) => a - b);
 ```
+
 - **Filter Operation:** O(n) with O(1) lookups per item
 - **Sort Operation:** O(n log n)
 - **Total:** O(n log n) - dominated by sort
@@ -84,6 +94,7 @@ const missingPages = Array.from(allPageNumbers)
 #### Why This is Efficient
 
 **Previous Approach (Push-based):**
+
 ```typescript
 // ❌ Less efficient
 const missingPages: number[] = [];
@@ -92,16 +103,20 @@ catch (error) {
   missingPages.push(pageNumber);  // Risk of duplicates, no validation
 }
 ```
+
 - No validation against total pages
 - Potential for duplicates
 - No way to know if we missed tracking a page
 
 **New Approach (Set-based difference):**
+
 ```typescript
 // ✅ More efficient and accurate
-const missingPages = Array.from(allPageNumbers)
-  .filter(pageNum => !successfullyProcessedPages.has(pageNum));
+const missingPages = Array.from(allPageNumbers).filter(
+  (pageNum) => !successfullyProcessedPages.has(pageNum)
+);
 ```
+
 - **Guarantees completeness:** Every page is accounted for
 - **No duplicates:** Set structure prevents duplicates
 - **O(1) lookup:** `has()` operation is constant time
@@ -109,19 +124,20 @@ const missingPages = Array.from(allPageNumbers)
 
 #### Complexity Analysis
 
-| Operation | Previous | New | Improvement |
-|-----------|----------|-----|-------------|
-| Track failure | O(1) push | O(1) Set lookup | Same |
-| Track success | - | O(1) Set add | New feature |
-| Calculate missing | Already done | O(n) filter with O(1) has | More accurate |
-| Total space | O(k) where k=failures | O(n) where n=total | More data but accurate |
-| Accuracy | 🟡 Depends on catching errors | 🟢 Guaranteed complete | Better |
+| Operation         | Previous                      | New                       | Improvement            |
+| ----------------- | ----------------------------- | ------------------------- | ---------------------- |
+| Track failure     | O(1) push                     | O(1) Set lookup           | Same                   |
+| Track success     | -                             | O(1) Set add              | New feature            |
+| Calculate missing | Already done                  | O(n) filter with O(1) has | More accurate          |
+| Total space       | O(k) where k=failures         | O(n) where n=total        | More data but accurate |
+| Accuracy          | 🟡 Depends on catching errors | 🟢 Guaranteed complete    | Better                 |
 
 ---
 
 ### 3. UI Component (`TableHeader.tsx`)
 
 #### Added Props
+
 ```typescript
 missingPages?: number[];  // Optional for backwards compatibility
 totalPages?: number;      // Total pages in PDF
@@ -130,17 +146,21 @@ totalPages?: number;      // Total pages in PDF
 #### Display Logic
 
 **When Missing Pages Exist:**
+
 ```typescript
 <AlertTriangle /> Missing Pages: 3, 7, 12 (3 of 15 pages could not be processed)
 ```
+
 - Shows exact page numbers
 - Shows proportion: "X of Y pages"
 - Amber warning styling
 
 **When All Pages Succeed:**
+
 ```typescript
 <Check /> All pages processed successfully - 15 pages processed
 ```
+
 - Confirms success explicitly
 - Shows total pages processed
 - Green success styling
@@ -150,6 +170,7 @@ totalPages?: number;      // Total pages in PDF
 ## User Experience Flow
 
 ### Scenario 1: Perfect Processing (100% success rate)
+
 ```
 1. User uploads 20-page PDF
 2. All 20 pages process successfully
@@ -158,6 +179,7 @@ totalPages?: number;      // Total pages in PDF
 ```
 
 ### Scenario 2: Partial Failures (85% success rate)
+
 ```
 1. User uploads 20-page PDF
 2. Pages 3, 7, 15 fail to process (17 succeed)
@@ -167,10 +189,11 @@ totalPages?: number;      // Total pages in PDF
 ```
 
 ### Scenario 3: Multiple Failures
+
 ```
 1. User uploads 50-page PDF
 2. 10 pages fail due to extraction issues (40 succeed)
-3. UI shows: ⚠️ "Missing Pages: 2, 5, 8, 12, 15, 23, 28, 35, 41, 47 
+3. UI shows: ⚠️ "Missing Pages: 2, 5, 8, 12, 15, 23, 28, 35, 41, 47
              (10 of 50 pages could not be processed)"
 4. Clear visibility of success rate (80%)
 5. Upload section auto-collapses
@@ -181,6 +204,7 @@ totalPages?: number;      // Total pages in PDF
 ## Benefits
 
 ### For Users
+
 ✅ **Complete Transparency** - Always know exactly what happened  
 ✅ **Accurate Metrics** - See "X of Y pages" for context  
 ✅ **Actionable Feedback** - Know which specific pages to review  
@@ -188,23 +212,26 @@ totalPages?: number;      // Total pages in PDF
 ✅ **No Surprises** - Upload section automatically collapses after generation
 
 ### For Developers
+
 ✅ **Efficient Algorithm** - O(1) lookups using Set data structure  
 ✅ **Guaranteed Accuracy** - Set-based difference ensures completeness  
 ✅ **No Duplicates** - Set structure prevents tracking errors  
 ✅ **Easy Debugging** - Logs show exactly what happened  
-✅ **Type Safe** - Zod schema enforces required fields  
+✅ **Type Safe** - Zod schema enforces required fields
 
 ### For System
+
 ✅ **Resilient** - Individual page failures don't crash entire process  
 ✅ **Observable** - Clear logging at each step  
 ✅ **Scalable** - Efficient even with large PDFs  
-✅ **Maintainable** - Clean separation of concerns  
+✅ **Maintainable** - Clean separation of concerns
 
 ---
 
 ## Code Examples
 
 ### Example: Agent Return Value
+
 ```typescript
 {
   fields: [...], // 45 extracted products
@@ -214,6 +241,7 @@ totalPages?: number;      // Total pages in PDF
 ```
 
 ### Example: Perfect Success
+
 ```typescript
 {
   fields: [...], // 82 extracted products
@@ -223,6 +251,7 @@ totalPages?: number;      // Total pages in PDF
 ```
 
 ### Example: Complete Failure of Extraction
+
 ```typescript
 {
   fields: [], // No products (all pages failed)
@@ -236,24 +265,28 @@ totalPages?: number;      // Total pages in PDF
 ## Testing Recommendations
 
 ### Test Case 1: All Pages Succeed
+
 - Upload small PDF (3-5 pages)
 - Verify: `missingPages: []`
 - Verify: Green success banner shows
 - Verify: Upload section collapses
 
 ### Test Case 2: Some Pages Fail
+
 - Simulate failure on specific pages
 - Verify: Missing pages listed correctly
 - Verify: Amber warning banner shows
 - Verify: "X of Y" count is accurate
 
 ### Test Case 3: Large PDF
+
 - Upload 50+ page PDF
 - Verify: Processing completes
 - Verify: Missing pages calculated correctly
 - Verify: UI remains responsive
 
 ### Test Case 4: Edge Cases
+
 - Empty PDF (0 pages) → Should handle gracefully
 - Single page PDF → Singular grammar ("1 page")
 - All pages fail → Should show all page numbers
@@ -263,17 +296,20 @@ totalPages?: number;      // Total pages in PDF
 ## Performance Characteristics
 
 ### Memory Usage
+
 - **Previous:** O(k) where k = number of failed pages
 - **New:** O(n) where n = total pages
 - **Trade-off:** Slightly more memory for guaranteed accuracy
 
 ### Processing Speed
+
 - **Page collection:** O(n) - one-time upfront cost
 - **Success tracking:** O(1) per page - constant time
 - **Missing calculation:** O(n log n) - sorting dominates
 - **Total:** Still very efficient even for large PDFs
 
 ### Real-world Performance
+
 - **10 pages:** < 1ms overhead
 - **50 pages:** < 5ms overhead
 - **100 pages:** < 15ms overhead
@@ -297,6 +333,7 @@ Potential improvements for future versions:
 ## Conclusion
 
 The missing pages feature now provides:
+
 - ✅ **Efficient** tracking using optimal data structures
 - ✅ **Accurate** "X of Y" page reporting
 - ✅ **Complete** transparency for users

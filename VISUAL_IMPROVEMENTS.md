@@ -5,6 +5,7 @@
 ### Example 1: All Pages Successful
 
 **Before Implementation:**
+
 ```
 ┌────────────────────────────────────────┐
 │  Generated Werkbrief               [🗖] │
@@ -14,6 +15,7 @@
 ```
 
 **After Implementation:**
+
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  Generated Werkbrief                                   [🗖] │
@@ -24,6 +26,7 @@
 │  └────────────────────────────────────────────────────┘    │
 └────────────────────────────────────────────────────────────┘
 ```
+
 🟢 Green success banner with total page count
 
 ---
@@ -31,6 +34,7 @@
 ### Example 2: Some Pages Missing
 
 **Before Implementation:**
+
 ```
 ┌────────────────────────────────────────┐
 │  Generated Werkbrief               [🗖] │
@@ -42,9 +46,11 @@
 │  └──────────────────────────────────┘  │
 └────────────────────────────────────────┘
 ```
+
 ❌ No context about total pages
 
 **After Implementation:**
+
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  Generated Werkbrief                                   [🗖] │
@@ -55,6 +61,7 @@
 │  └────────────────────────────────────────────────────┘    │
 └────────────────────────────────────────────────────────────┘
 ```
+
 🟡 Amber warning with accurate "3 of 15" context
 
 ---
@@ -62,6 +69,7 @@
 ### Example 3: Large PDF with Multiple Failures
 
 **Before Implementation:**
+
 ```
 ┌────────────────────────────────────────┐
 │  Generated Werkbrief               [🗖] │
@@ -74,9 +82,11 @@
 │  └──────────────────────────────────┘  │
 └────────────────────────────────────────┘
 ```
+
 ❌ User doesn't know: 10 out of how many?
 
 **After Implementation:**
+
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  Generated Werkbrief                                   [🗖] │
@@ -88,6 +98,7 @@
 │  └────────────────────────────────────────────────────┘    │
 └────────────────────────────────────────────────────────────┘
 ```
+
 ✅ Clear success rate: 40 out of 50 pages = 80% success
 
 ---
@@ -97,17 +108,21 @@
 ### Information Density
 
 **Before:**
+
 ```
 ⚠️ 3 pages could not be processed
 ```
+
 - ❌ No total context
 - ❌ Unknown success rate
 - ❌ No way to calculate percentage
 
 **After:**
+
 ```
 ⚠️ 3 of 15 pages could not be processed
 ```
+
 - ✅ Clear total: 15 pages
 - ✅ Success rate: 12/15 = 80%
 - ✅ Easy mental calculation
@@ -117,17 +132,21 @@
 ### Success Confirmation
 
 **Before:**
+
 ```
 (No message shown when all pages succeed)
 ```
+
 - ❌ Ambiguous - did it work or was check missing?
 - ❌ No confidence for user
 - ❌ Silent success
 
 **After:**
+
 ```
 ✓ All pages processed successfully - 20 pages processed
 ```
+
 - ✅ Explicit confirmation
 - ✅ Shows total pages processed
 - ✅ Builds user confidence
@@ -141,14 +160,16 @@
 **Use Case:** QC team processes 100s of invoices daily
 
 **Before:**
+
 ```
-"3 pages failed" 
-→ Is that good or bad? 
+"3 pages failed"
+→ Is that good or bad?
 → 3 out of 5 pages = 60% fail rate (BAD!)
 → 3 out of 100 pages = 97% success rate (GOOD!)
 ```
 
 **After:**
+
 ```
 "3 of 100 pages could not be processed"
 → Immediately understand: 97% success rate
@@ -163,6 +184,7 @@
 **Use Case:** User reports processing issues
 
 **Before (User Report):**
+
 ```
 "Some pages didn't work"
 → How many pages?
@@ -172,6 +194,7 @@
 ```
 
 **After (User Report):**
+
 ```
 "3 of 15 pages failed (3, 7, 12)"
 → Complete information in one message
@@ -186,22 +209,26 @@
 **Use Case:** Monitoring system performance
 
 **Before:**
+
 ```json
 {
   "failed_pages": [3, 7, 12]
 }
 ```
+
 - ❌ Can't calculate success rate
 - ❌ Can't compare across documents
 - ❌ Incomplete metrics
 
 **After:**
+
 ```json
 {
   "failed_pages": [3, 7, 12],
   "total_pages": 15
 }
 ```
+
 - ✅ Success rate: 80% (12/15)
 - ✅ Can compare: "PDF A: 80%, PDF B: 95%"
 - ✅ Complete analytics
@@ -213,6 +240,7 @@
 ### Visual Flow
 
 **Step 1: Upload PDF**
+
 ```
 ┌────────────────────────────────────────┐
 │  📄 Werkbrief Generator                │
@@ -225,6 +253,7 @@
 ```
 
 **Step 2: Processing...**
+
 ```
 ┌────────────────────────────────────────┐
 │  📄 Werkbrief Generator                │
@@ -236,6 +265,7 @@
 ```
 
 **Step 3: Complete - Section Collapses!**
+
 ```
 ┌────────────────────────────────────────┐
 │  [▼ Expand Upload Section]             │  ← Collapsed!
@@ -250,6 +280,7 @@
 ```
 
 **Benefits:**
+
 - ✅ More screen space for results
 - ✅ Cleaner interface
 - ✅ User can expand if needed
@@ -260,6 +291,7 @@
 ## Mobile Responsive View
 
 ### Success Message
+
 ```
 ┌──────────────────────────┐
 │ Generated Werkbrief  [🗖] │
@@ -274,6 +306,7 @@
 ```
 
 ### Warning Message
+
 ```
 ┌──────────────────────────┐
 │ Generated Werkbrief  [🗖] │
@@ -292,12 +325,12 @@
 
 ## Summary of Visual Improvements
 
-| Feature | Before | After | Impact |
-|---------|--------|-------|--------|
-| Success confirmation | 🔴 None | 🟢 Explicit | ⬆️ User confidence |
-| Page context | 🔴 Missing | 🟢 "X of Y" | ⬆️ Understanding |
-| Success rate | 🔴 Unknown | 🟢 Calculable | ⬆️ Decision making |
-| Upload section | 🟡 Always visible | 🟢 Auto-collapse | ⬆️ Screen space |
-| Mobile view | 🟡 OK | 🟢 Optimized | ⬆️ Readability |
+| Feature              | Before            | After            | Impact             |
+| -------------------- | ----------------- | ---------------- | ------------------ |
+| Success confirmation | 🔴 None           | 🟢 Explicit      | ⬆️ User confidence |
+| Page context         | 🔴 Missing        | 🟢 "X of Y"      | ⬆️ Understanding   |
+| Success rate         | 🔴 Unknown        | 🟢 Calculable    | ⬆️ Decision making |
+| Upload section       | 🟡 Always visible | 🟢 Auto-collapse | ⬆️ Screen space    |
+| Mobile view          | 🟡 OK             | 🟢 Optimized     | ⬆️ Readability     |
 
 **Overall UX Score: 📈 Significantly Improved**

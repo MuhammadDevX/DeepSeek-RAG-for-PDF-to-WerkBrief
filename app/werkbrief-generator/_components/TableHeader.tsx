@@ -88,8 +88,12 @@ export const TableHeader = React.memo(
                       <span>
                         <strong>Missing Pages:</strong>{" "}
                         {missingPages.sort((a, b) => a - b).join(", ")}
-                        {totalPages !== undefined && ` (${missingPages.length} of ${totalPages} pages could not be processed)`}
-                        {totalPages === undefined && ` (${missingPages.length} page${missingPages.length !== 1 ? "s" : ""} could not be processed)`}
+                        {totalPages !== undefined &&
+                          ` (${missingPages.length} of ${totalPages} pages could not be processed)`}
+                        {totalPages === undefined &&
+                          ` (${missingPages.length} page${
+                            missingPages.length !== 1 ? "s" : ""
+                          } could not be processed)`}
                       </span>
                     </div>
                   ) : (
@@ -97,7 +101,10 @@ export const TableHeader = React.memo(
                       <Check className="w-4 h-4 flex-shrink-0" />
                       <span>
                         <strong>All pages processed successfully</strong>
-                        {totalPages !== undefined && ` - ${totalPages} page${totalPages !== 1 ? "s" : ""} processed`}
+                        {totalPages !== undefined &&
+                          ` - ${totalPages} page${
+                            totalPages !== 1 ? "s" : ""
+                          } processed`}
                         {totalPages === undefined && " - No missing pages"}
                       </span>
                     </div>

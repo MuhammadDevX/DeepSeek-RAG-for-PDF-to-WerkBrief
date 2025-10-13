@@ -73,7 +73,9 @@ export const WerkbriefSchema = z.object({
     ),
   totalPages: z
     .number()
-    .describe("Total number of pages in the PDF document. Calculated by agent, not AI model."),
+    .describe(
+      "Total number of pages in the PDF document. Calculated by agent, not AI model."
+    ),
 });
 
 export const ProductsBoughtSchema = z.object({

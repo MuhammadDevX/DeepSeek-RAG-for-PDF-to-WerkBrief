@@ -1,7 +1,9 @@
 # Model Responsibility Clarification - Fixed ✅
 
 ## Issue Identified
+
 The original `WerkbriefSchema` was being used for **both**:
+
 1. AI model's generation (per-page processing)
 2. Agent's final return value (with metadata)
 
@@ -14,6 +16,7 @@ This was potentially confusing and could have led to the model trying to generat
 Created **two separate schemas** with clear responsibilities:
 
 #### 1. `ProductFieldsSchema` - For AI Model Only
+
 ```typescript
 export const ProductFieldsSchema = z.object({
   fields: z.array(
@@ -31,11 +34,13 @@ export const ProductFieldsSchema = z.object({
   ),
 });
 ```
+
 **Purpose:** Used by AI model to generate product fields for a single page  
 **Scope:** Only product data, no metadata  
 **Used in:** `generateWerkbriefStep()` function
 
 #### 2. `WerkbriefSchema` - For Agent Return Value
+
 ```typescript
 export const WerkbriefSchema = z.object({
   fields: z.array([...]), // Same fields as above
@@ -47,6 +52,7 @@ export const WerkbriefSchema = z.object({
   ),
 });
 ```
+
 **Purpose:** Complete response structure with agent-calculated metadata  
 **Scope:** Product data + tracking metadata  
 **Used in:** `generateWerkbrief()` return value and API responses
@@ -56,22 +62,25 @@ export const WerkbriefSchema = z.object({
 ## Clear Separation of Concerns
 
 ### What AI Model Does ✅
+
 ```typescript
 // In generateWerkbriefStep()
 const { object: werkBriefObj } = await generateObject({
   model: openai("gpt-4o-mini"),
-  schema: ProductFieldsSchema,  // ← Only product fields!
+  schema: ProductFieldsSchema, // ← Only product fields!
   // ...
 });
 ```
 
 **Model Responsibilities:**
+
 - Extract product information from text
 - Generate product fields (description, code, quantities, etc.)
 - Assign confidence scores
 - **That's it!**
 
 **Model does NOT:**
+
 - ❌ Track missing pages
 - ❌ Calculate total pages
 - ❌ Know about other pages
@@ -80,6 +89,7 @@ const { object: werkBriefObj } = await generateObject({
 ---
 
 ### What Agent Does ✅
+
 ```typescript
 // In generateWerkbrief()
 
@@ -114,6 +124,7 @@ return {
 ```
 
 **Agent Responsibilities:**
+
 - Load and parse PDF
 - Extract all page numbers
 - Call AI model for each page
@@ -128,24 +139,26 @@ return {
 ## Verification
 
 ### AI Model Call
+
 ```typescript
 // generateWerkbriefStep() - Line ~458
 const { object: werkBriefObj } = await generateObject({
   model: openai("gpt-4o-mini"),
   system: werkbriefSystemPrompt,
   prompt: `Generate a werkbrief for the following products...`,
-  schema: ProductFieldsSchema,  // ✅ NO missingPages or totalPages
+  schema: ProductFieldsSchema, // ✅ NO missingPages or totalPages
   temperature: 0,
 });
 ```
 
 ### Agent Return
+
 ```typescript
 // generateWerkbrief() - Line ~399
-return { 
-  fields: consolidatedFields,           // ✅ From AI model
-  missingPages,                         // ✅ Agent calculated
-  totalPages: allPageNumbers.size      // ✅ Agent calculated
+return {
+  fields: consolidatedFields, // ✅ From AI model
+  missingPages, // ✅ Agent calculated
+  totalPages: allPageNumbers.size, // ✅ Agent calculated
 };
 ```
 
@@ -154,21 +167,25 @@ return {
 ## Benefits
 
 ### 1. Clear Responsibility
+
 - ✅ Model: Generate product data
 - ✅ Agent: Track processing metadata
 - ✅ No confusion about who does what
 
 ### 2. Type Safety
+
 - ✅ `ProductFieldsSchema` enforces model output
 - ✅ `WerkbriefSchema` enforces complete response
 - ✅ TypeScript catches misuse
 
 ### 3. Maintainability
+
 - ✅ Easy to understand each component's role
 - ✅ Can modify metadata without affecting model
 - ✅ Can change model output without affecting metadata
 
 ### 4. Correctness
+
 - ✅ Model cannot hallucinate missing pages
 - ✅ Model cannot guess total pages
 - ✅ Agent has ground truth from PDF structure
@@ -208,6 +225,7 @@ Return WerkbriefSchema {
 ## Testing Recommendations
 
 ### Test 1: Verify Model Schema
+
 ```typescript
 // Ensure model doesn't see missingPages/totalPages
 const result = await generateObject({
@@ -216,12 +234,13 @@ const result = await generateObject({
 });
 
 // Should only have 'fields' property
-expect(result).toHaveProperty('fields');
-expect(result).not.toHaveProperty('missingPages');
-expect(result).not.toHaveProperty('totalPages');
+expect(result).toHaveProperty("fields");
+expect(result).not.toHaveProperty("missingPages");
+expect(result).not.toHaveProperty("totalPages");
 ```
 
 ### Test 2: Verify Agent Calculation
+
 ```typescript
 // Mock a PDF with known pages
 const mockPDF = {
@@ -237,6 +256,7 @@ expect(result.fields.length).toBeGreaterThan(0);
 ```
 
 ### Test 3: Verify Independence
+
 ```typescript
 // Even if model fails, agent should track correctly
 const result = await generateWerkbrief(largePDF);
@@ -258,6 +278,7 @@ expect(result.missingPages.length + successCount).toBe(result.totalPages);
 ✅ **Type-safe and maintainable**
 
 The fix ensures that:
+
 1. AI model focuses on its core competency: extracting product data
 2. Agent handles orchestration and metadata tracking
 3. No risk of model hallucinating page counts

@@ -1,9 +1,11 @@
 # Page Number Responsibility Fix
 
 ## Problem Identified
+
 The AI model's schema included a `"Page Number"` field, suggesting that the model should extract page numbers from the PDF content. However, **PDFs rarely have page numbers written in the text** - they're structural metadata, not content.
 
 ## Root Cause
+
 - Model was instructed to extract page numbers from PDF text
 - This is impossible because page numbers don't exist in PDF content
 - Page numbers are metadata determined by the PDF structure (document.metadata.loc.pageNumber)
@@ -13,6 +15,7 @@ The AI model's schema included a `"Page Number"` field, suggesting that the mode
 ### 1. Schema Changes (`lib/ai/schema.ts`)
 
 #### Before:
+
 ```typescript
 export const ProductFieldsSchema = z.object({
   fields: z.array(
@@ -27,6 +30,7 @@ export const ProductFieldsSchema = z.object({
 ```
 
 #### After:
+
 ```typescript
 export const ProductFieldsSchema = z.object({
   fields: z.array(
@@ -42,6 +46,7 @@ export const ProductFieldsSchema = z.object({
 ### 2. Agent Changes (`lib/ai/agent.ts`)
 
 #### Before:
+
 ```typescript
 const fieldsWithPageNumber = (werkBriefObj.fields || []).map((field) => ({
   ...field,
@@ -50,6 +55,7 @@ const fieldsWithPageNumber = (werkBriefObj.fields || []).map((field) => ({
 ```
 
 #### After:
+
 ```typescript
 // Agent assigns page number to all fields based on PDF structure
 // Model doesn't extract page numbers - they're not in the PDF content!
@@ -83,12 +89,12 @@ Final result with page numbers assigned correctly
 
 ## Responsibilities Separation
 
-| Responsibility | Owner | Reason |
-|---------------|-------|--------|
-| Extract product fields from content | AI Model | Content analysis |
-| Assign page numbers | Agent | PDF metadata |
-| Track missing pages | Agent | Orchestration logic |
-| Calculate total pages | Agent | PDF structure |
+| Responsibility                      | Owner    | Reason              |
+| ----------------------------------- | -------- | ------------------- |
+| Extract product fields from content | AI Model | Content analysis    |
+| Assign page numbers                 | Agent    | PDF metadata        |
+| Track missing pages                 | Agent    | Orchestration logic |
+| Calculate total pages               | Agent    | PDF structure       |
 
 ## Why This Matters
 
@@ -106,5 +112,6 @@ Final result with page numbers assigned correctly
 - [ ] Validate that "Page Number" field appears in final output
 
 ## Related Changes
+
 - See `MODEL_RESPONSIBILITY_FIX.md` for separation of missingPages/totalPages
 - See `MISSING_PAGES_FEATURE.md` for overall missing pages tracking

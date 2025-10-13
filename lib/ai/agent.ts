@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { openai } from "@/config/agents";
-import { ProductsBoughtSchema, ProductFieldsSchema, WerkbriefSchema, Werkbrief } from "./schema";
+import { ProductsBoughtSchema, ProductFieldsSchema, Werkbrief } from "./schema";
 import { productsAnalyzerPrompt, werkbriefSystemPrompt } from "./prompt";
 import { retrieveRelevantSnippets } from "./tool-pinecone";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
@@ -253,7 +253,10 @@ export async function generateWerkbrief(
 
   if (docs.length === 0) {
     console.log("No documents to process");
-    safeProgress({ type: "complete", data: { fields: [], missingPages: [], totalPages: 0 } });
+    safeProgress({
+      type: "complete",
+      data: { fields: [], missingPages: [], totalPages: 0 },
+    });
     isProcessingComplete = true;
     return { fields: [], missingPages: [], totalPages: 0 };
   }
@@ -271,18 +274,12 @@ export async function generateWerkbrief(
   try {
     // Create an atomic counter for real-time progress tracking in parallel processing
     let completedDocuments = 0;
-    
-    // Track all page numbers and successfully processed pages
-    const allPageNumbers = new Set<number>();
-    const successfullyProcessedPages = new Set<number>();
-    
-    // First, collect all page numbers from the PDF
-    docs.forEach((doc, index) => {
-      const pageNumber = doc.metadata?.loc?.pageNumber || index + 1;
-      allPageNumbers.add(pageNumber);
-    });
-    
-    console.log(`Total pages in PDF: ${allPageNumbers.size}`);
+
+    // Track successfully processed page numbers (simple array approach)
+    const successfullyProcessedPages: number[] = [];
+    const totalPages = docs.length;
+
+    console.log(`Total pages in PDF: ${totalPages}`);
 
     // Process documents in parallel batches with atomic progress tracking
     const allFields = await processBatches(docs, async (doc, index) => {
@@ -309,7 +306,7 @@ export async function generateWerkbrief(
         );
 
         // Mark this page as successfully processed
-        successfullyProcessedPages.add(pageNumber);
+        successfullyProcessedPages.push(pageNumber);
 
         // Atomically increment the completed counter
         completedDocuments++;
@@ -358,15 +355,28 @@ export async function generateWerkbrief(
       }
     });
 
-    // Calculate missing pages efficiently: all pages - successfully processed pages
-    const missingPages = Array.from(allPageNumbers)
-      .filter(pageNum => !successfullyProcessedPages.has(pageNum))
-      .sort((a, b) => a - b);
+    // Calculate missing pages: find gaps from 1 to highest successfully processed page
+    // Simple approach: check which numbers between 1 and max are missing
+    const maxProcessedPage =
+      successfullyProcessedPages.length > 0
+        ? Math.max(...successfullyProcessedPages)
+        : 0;
 
-    console.log(`Successfully processed pages: ${successfullyProcessedPages.size}/${allPageNumbers.size}`);
+    const missingPages: number[] = [];
+    for (let i = 1; i <= maxProcessedPage; i++) {
+      if (!successfullyProcessedPages.includes(i)) {
+        missingPages.push(i);
+      }
+    }
+
+    console.log(
+      `Successfully processed pages: ${successfullyProcessedPages.length}/${totalPages}`
+    );
     if (missingPages.length > 0) {
       console.warn(
-        `Missing pages: ${missingPages.join(", ")} (${missingPages.length} out of ${allPageNumbers.size} total pages)`
+        `Missing pages: ${missingPages.join(", ")} (${
+          missingPages.length
+        } gaps found between pages 1-${maxProcessedPage})`
       );
     }
 
@@ -387,12 +397,20 @@ export async function generateWerkbrief(
     if (!isProcessingComplete) {
       const completionMessage =
         missingPages.length > 0
-          ? `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length}). ${missingPages.length} of ${allPageNumbers.size} pages could not be processed.`
-          : `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length}). All ${allPageNumbers.size} pages processed successfully.`;
+          ? `Processing complete! Generated ${
+              consolidatedFields.length
+            } werkbrief entries (consolidated from ${fields.length}). ${
+              missingPages.length
+            } gaps found in pages 1-${Math.max(...successfullyProcessedPages)}.`
+          : `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length}). All ${totalPages} pages processed successfully.`;
 
       safeProgress({
         type: "complete",
-        data: { fields: consolidatedFields, missingPages, totalPages: allPageNumbers.size },
+        data: {
+          fields: consolidatedFields,
+          missingPages,
+          totalPages: totalPages,
+        },
         currentStep: completionMessage,
         totalDocuments: docs.length,
         processedDocuments: docs.length,
@@ -400,7 +418,11 @@ export async function generateWerkbrief(
       isProcessingComplete = true;
     }
 
-    return { fields: consolidatedFields, missingPages, totalPages: allPageNumbers.size };
+    return {
+      fields: consolidatedFields,
+      missingPages,
+      totalPages: totalPages,
+    };
   } catch (error) {
     console.error("Parallel processing failed:", error);
     if (!isProcessingComplete) {
