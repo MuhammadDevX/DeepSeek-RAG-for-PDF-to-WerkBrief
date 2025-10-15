@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useRef } from "react";
 import { z } from "zod";
 import { WerkbriefSchema } from "@/lib/ai/schema";
 
@@ -38,13 +38,22 @@ export const useTableData = ({
   currentPage,
   itemsPerPage,
 }: UseTableDataOptions) => {
-  // Initialize data when result changes
+  // Track the last result we initialized from to prevent re-initialization on navigation
+  const lastInitializedResultRef = useRef<Werkbrief | null>(null);
+
+  // Initialize data when result changes, but only if it's a NEW result
+  // This prevents overwriting user edits when navigating back to the page
   useEffect(() => {
-    if (result?.fields) {
+    if (
+      result?.fields &&
+      editedFields.length === 0 &&
+      result !== lastInitializedResultRef.current
+    ) {
       setEditedFields(result.fields);
       setCheckedFields(result.fields.map(() => true));
+      lastInitializedResultRef.current = result;
     }
-  }, [result, setEditedFields, setCheckedFields]);
+  }, [result, editedFields.length, setEditedFields, setCheckedFields]);
 
   // Memoized filtered and sorted data
   const filteredAndSortedFields = useMemo(() => {

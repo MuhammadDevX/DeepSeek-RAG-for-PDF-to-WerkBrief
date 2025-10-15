@@ -20,6 +20,10 @@ interface TableHeaderRowProps {
   onToggleDeleteMode?: () => void;
   deleteSelectAll?: boolean;
   onDeleteSelectAll?: () => void;
+  isMergeMode?: boolean;
+  onToggleMergeMode?: () => void;
+  mergeSelectAll?: boolean;
+  onMergeSelectAll?: () => void;
 }
 
 export const TableHeaderRow = React.memo(
@@ -32,6 +36,10 @@ export const TableHeaderRow = React.memo(
     onToggleDeleteMode,
     deleteSelectAll = false,
     onDeleteSelectAll,
+    isMergeMode = false,
+    onToggleMergeMode,
+    mergeSelectAll = false,
+    onMergeSelectAll,
   }: TableHeaderRowProps) => {
     const SortableHeader: React.FC<{
       sortKey: keyof Werkbrief["fields"][0];
@@ -63,26 +71,46 @@ export const TableHeaderRow = React.memo(
           <div className="flex items-center gap-1">
             <input
               type="checkbox"
-              checked={isDeleteMode ? deleteSelectAll : bulkSelectAll}
-              onChange={isDeleteMode ? onDeleteSelectAll : onBulkSelectAll}
+              checked={
+                isMergeMode
+                  ? mergeSelectAll
+                  : isDeleteMode
+                  ? deleteSelectAll
+                  : bulkSelectAll
+              }
+              onChange={
+                isMergeMode
+                  ? onMergeSelectAll
+                  : isDeleteMode
+                  ? onDeleteSelectAll
+                  : onBulkSelectAll
+              }
               className={`w-3 h-3 ${
-                isDeleteMode
+                isMergeMode
+                  ? "text-purple-600 focus:ring-purple-500 dark:focus:ring-purple-600"
+                  : isDeleteMode
                   ? "text-red-600 focus:ring-red-500 dark:focus:ring-red-600"
                   : "text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600"
               } bg-gray-100 border-gray-300 rounded focus:ring-1 dark:bg-gray-700 dark:border-gray-600`}
               title={
-                isDeleteMode
+                isMergeMode
+                  ? "Select/deselect all items for merging"
+                  : isDeleteMode
                   ? "Select/deselect all items for deletion"
                   : "Select/deselect all items on this page"
               }
             />
             <span
               className={`w-2 h-2 ${
-                isDeleteMode ? "bg-red-500" : "bg-green-500"
+                isMergeMode
+                  ? "bg-purple-500"
+                  : isDeleteMode
+                  ? "bg-red-500"
+                  : "bg-green-500"
               } rounded-full`}
             ></span>
             <span className="hidden lg:inline">
-              {isDeleteMode ? "Del" : "Excel"}
+              {isMergeMode ? "Merge" : isDeleteMode ? "Del" : "Excel"}
             </span>
           </div>
         </th>

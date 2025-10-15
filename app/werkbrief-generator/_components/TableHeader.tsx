@@ -13,6 +13,8 @@ import {
   Minimize2,
   Trash2,
   AlertTriangle,
+  Merge,
+  Database,
 } from "lucide-react";
 
 interface TableHeaderProps {
@@ -33,6 +35,12 @@ interface TableHeaderProps {
   onToggleDeleteMode?: () => void;
   onBatchDelete?: () => void;
   selectedForDeletionCount?: number;
+  isMergeMode?: boolean;
+  onToggleMergeMode?: () => void;
+  onBatchMerge?: () => void;
+  selectedForMergeCount?: number;
+  isAdmin?: boolean;
+  onExpandToKB?: () => void;
 }
 
 export const TableHeader = React.memo(
@@ -54,6 +62,12 @@ export const TableHeader = React.memo(
     onToggleDeleteMode,
     onBatchDelete,
     selectedForDeletionCount = 0,
+    isMergeMode = false,
+    onToggleMergeMode,
+    onBatchMerge,
+    selectedForMergeCount = 0,
+    isAdmin = false,
+    onExpandToKB,
   }: TableHeaderProps) => {
     return (
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b border-gray-200 dark:border-gray-700 p-6">
@@ -89,7 +103,9 @@ export const TableHeader = React.memo(
                         <strong>Missing Pages:</strong>{" "}
                         {missingPages.sort((a, b) => a - b).join(", ")}
                         {totalPages !== undefined &&
-                          ` (${missingPages.length} of ${totalPages + missingPages.length} pages could not be processed)`}
+                          ` (${missingPages.length} of ${
+                            totalPages + missingPages.length
+                          } pages could not be processed)`}
                         {totalPages === undefined &&
                           ` (${missingPages.length} page${
                             missingPages.length !== 1 ? "s" : ""
@@ -140,7 +156,27 @@ export const TableHeader = React.memo(
             </button>
 
             <div className="flex items-center gap-2">
-              {isDeleteMode ? (
+              {isMergeMode ? (
+                <>
+                  <Button
+                    onClick={onBatchMerge}
+                    variant="default"
+                    size="sm"
+                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                    disabled={selectedForMergeCount < 2}
+                  >
+                    <Merge className="w-4 h-4" />
+                    <span>Merge Selected ({selectedForMergeCount})</span>
+                  </Button>
+                  <Button
+                    onClick={onToggleMergeMode}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : isDeleteMode ? (
                 <>
                   <Button
                     onClick={onBatchDelete}
@@ -162,6 +198,27 @@ export const TableHeader = React.memo(
                 </>
               ) : (
                 <>
+                  {isAdmin && onExpandToKB && (
+                    <Button
+                      onClick={onExpandToKB}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
+                      title="Add selected items to knowledge base"
+                    >
+                      <Database className="w-4 h-4" />
+                      <span className="hidden sm:inline">Expand to KB</span>
+                    </Button>
+                  )}
+                  <Button
+                    onClick={onToggleMergeMode}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:hover:text-purple-300 dark:hover:bg-purple-900/20"
+                  >
+                    <Merge className="w-4 h-4" />
+                    <span className="hidden sm:inline">Batch Merge</span>
+                  </Button>
                   <Button
                     onClick={onToggleDeleteMode}
                     variant="outline"

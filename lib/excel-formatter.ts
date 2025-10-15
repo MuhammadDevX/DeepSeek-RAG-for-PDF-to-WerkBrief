@@ -49,7 +49,6 @@ export function formatSelectedFieldsForExcel(
     "STKS",
     "BRUTO",
     "FOB",
-    "Page",
   ];
 
   // Add headers
@@ -61,13 +60,12 @@ export function formatSelectedFieldsForExcel(
     if (checkedFields[index]) {
       const row = [
         rowNumber.toString(),
-        field["GOEDEREN OMSCHRIJVING"],
-        field["GOEDEREN CODE"],
-        field.CTNS.toString(),
-        field.STKS.toString(),
-        field.BRUTO.toString(),
-        field.FOB.toString(),
-        field["Page Number"]?.toString() || "-",
+        field["GOEDEREN OMSCHRIJVING"] || "",
+        field["GOEDEREN CODE"] || "",
+        (field.CTNS || 0).toString(),
+        (field.STKS || 0).toString(),
+        (field.BRUTO || 0).toString(),
+        (field.FOB || 0).toString(),
       ];
       excelData.push(row.join("\t"));
       rowNumber++;
@@ -118,7 +116,6 @@ export function downloadExcelFile(
     STKS: number;
     BRUTO: number;
     FOB: number;
-    Page: number | string;
   };
 
   // Prepare data for Excel export
@@ -130,13 +127,12 @@ export function downloadExcelFile(
     if (checkedFields[index]) {
       exportData.push({
         Number: rowNumber,
-        "GOEDEREN OMSCHRIJVING": field["GOEDEREN OMSCHRIJVING"],
-        "GOEDEREN CODE": field["GOEDEREN CODE"],
-        CTNS: field.CTNS,
-        STKS: field.STKS,
-        BRUTO: field.BRUTO,
-        FOB: field.FOB,
-        Page: field["Page Number"] ?? "-",
+        "GOEDEREN OMSCHRIJVING": field["GOEDEREN OMSCHRIJVING"] || "",
+        "GOEDEREN CODE": field["GOEDEREN CODE"] || "",
+        CTNS: field.CTNS || 0,
+        STKS: field.STKS || 0,
+        BRUTO: field.BRUTO || 0,
+        FOB: field.FOB || 0,
       });
       rowNumber++;
     }
@@ -155,7 +151,6 @@ export function downloadExcelFile(
     { wch: 8 }, // STKS
     { wch: 10 }, // BRUTO
     { wch: 10 }, // FOB
-    { wch: 8 }, // Page
   ];
   ws["!cols"] = columnWidths;
 

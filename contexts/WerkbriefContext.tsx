@@ -108,6 +108,16 @@ interface WerkbriefContextType {
   deleteSelectAll: boolean;
   setDeleteSelectAll: (select: boolean | ((prev: boolean) => boolean)) => void;
 
+  // Merge mode state
+  isMergeMode: boolean;
+  setIsMergeMode: (mode: boolean | ((prev: boolean) => boolean)) => void;
+  selectedForMerge: boolean[];
+  setSelectedForMerge: (
+    selected: boolean[] | ((prev: boolean[]) => boolean[])
+  ) => void;
+  mergeSelectAll: boolean;
+  setMergeSelectAll: (select: boolean | ((prev: boolean) => boolean)) => void;
+
   // Deleted rows state
   deletedRows: DeletedBatch[];
   setDeletedRows: (
@@ -195,6 +205,11 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
   const [selectedForDeletion, setSelectedForDeletion] = useState<boolean[]>([]);
   const [deleteSelectAll, setDeleteSelectAll] = useState<boolean>(false);
 
+  // Merge mode state
+  const [isMergeMode, setIsMergeMode] = useState<boolean>(false);
+  const [selectedForMerge, setSelectedForMerge] = useState<boolean[]>([]);
+  const [mergeSelectAll, setMergeSelectAll] = useState<boolean>(false);
+
   // Deleted rows state
   const [deletedRows, setDeletedRows] = useState<DeletedBatch[]>([]);
   const [showUndoNotification, setShowUndoNotification] = useState(false);
@@ -227,6 +242,9 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
     setIsDeleteMode(false);
     setSelectedForDeletion([]);
     setDeleteSelectAll(false);
+    setIsMergeMode(false);
+    setSelectedForMerge([]);
+    setMergeSelectAll(false);
     setDeletedRows([]);
     setShowUndoNotification(false);
     setEditedFields([]);
@@ -288,6 +306,14 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
       deleteSelectAll,
       setDeleteSelectAll,
 
+      // Merge mode state
+      isMergeMode,
+      setIsMergeMode,
+      selectedForMerge,
+      setSelectedForMerge,
+      mergeSelectAll,
+      setMergeSelectAll,
+
       // Deleted rows state
       deletedRows,
       setDeletedRows,
@@ -329,6 +355,9 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
       isDeleteMode,
       selectedForDeletion,
       deleteSelectAll,
+      isMergeMode,
+      selectedForMerge,
+      mergeSelectAll,
       deletedRows,
       showUndoNotification,
       editedFields,

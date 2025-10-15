@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "motion/react";
 import UploadExcel from "./_components/UploadExcel";
 import PineconeProgress from "./_components/PineconeProgress";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, AlertCircle, Upload, Database } from "lucide-react";
+import { CheckCircle, AlertCircle, Upload, Database, Plus } from "lucide-react";
+import { AddItemToKnowledgebaseModal } from "@/components/AddItemToKnowledgebaseModal";
 
 interface ExcelRow {
   [key: string]: string | number | boolean | null;
@@ -60,6 +61,7 @@ export default function ExpandPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
 
   const handleFileSelect = (
     file: File | null,
@@ -215,6 +217,18 @@ export default function ExpandPage() {
             base. The file must contain the required columns for proper
             processing.
           </p>
+
+          {/* Add Single Item Button */}
+          <div className="mt-6">
+            <Button
+              onClick={() => setIsAddItemModalOpen(true)}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Single Item
+            </Button>
+          </div>
         </motion.div>
 
         {/* Main Content */}
@@ -414,6 +428,15 @@ export default function ExpandPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Add Item Modal */}
+      <AddItemToKnowledgebaseModal
+        isOpen={isAddItemModalOpen}
+        onClose={() => setIsAddItemModalOpen(false)}
+        onSuccess={() => {
+          console.log("Item added successfully!");
+        }}
+      />
     </div>
   );
 }

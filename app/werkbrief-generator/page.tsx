@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Description } from "./_components/Description";
 import { WerkbriefProgress } from "./_components/WerkbriefProgress";
 import { FileUploadSection } from "./_components/FileUploadSection";
@@ -22,6 +22,7 @@ import {
   copyToClipboard,
   downloadExcelFile,
 } from "@/lib/excel-formatter";
+import { useUser } from "@clerk/nextjs";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
 
@@ -48,6 +49,11 @@ interface DeletedBatch {
 }
 
 const WerkBriefHome = () => {
+  // Check if user is admin
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === "admin";
+  const [isExpandingToKB, setIsExpandingToKB] = useState(false);
+
   // Get state from context
   const {
     // Ref to track if we've already auto-collapsed the upload section
@@ -116,6 +122,14 @@ const WerkBriefHome = () => {
     setSelectedForDeletion,
     deleteSelectAll,
     setDeleteSelectAll,
+
+    // Merge mode state
+    isMergeMode,
+    setIsMergeMode,
+    selectedForMerge,
+    setSelectedForMerge,
+    mergeSelectAll,
+    setMergeSelectAll,
   } = useWerkbrief();
 
   // Custom hooks
@@ -517,6 +531,180 @@ const WerkBriefHome = () => {
     setShowUndoNotification,
   ]);
 
+  // Merge mode handlers
+  const handleToggleMergeMode = useCallback(() => {
+    setIsMergeMode((prev) => !prev);
+    // Clear selection when toggling mode
+    if (!isMergeMode) {
+      setSelectedForMerge([]);
+      setMergeSelectAll(false);
+    }
+  }, [isMergeMode, setIsMergeMode, setSelectedForMerge, setMergeSelectAll]);
+
+  const handleMergeSelectAll = useCallback(() => {
+    const newMergeSelectAll = !mergeSelectAll;
+    setMergeSelectAll(newMergeSelectAll);
+
+    setSelectedForMerge((prevSelected) => {
+      const newSelectedForMerge = [...prevSelected];
+
+      // Create a Set for faster lookups
+      const paginatedFieldsSet = new Set(paginatedFields);
+
+      editedFields.forEach((field, index) => {
+        if (paginatedFieldsSet.has(field)) {
+          newSelectedForMerge[index] = newMergeSelectAll;
+        }
+      });
+
+      return newSelectedForMerge;
+    });
+  }, [
+    mergeSelectAll,
+    paginatedFields,
+    editedFields,
+    setSelectedForMerge,
+    setMergeSelectAll,
+  ]);
+
+  const handleToggleMergeSelection = useCallback(
+    (index: number) => {
+      setSelectedForMerge((prev) => {
+        const newSelected = [...prev];
+        newSelected[index] = !newSelected[index];
+        return newSelected;
+      });
+    },
+    [setSelectedForMerge]
+  );
+
+  const handleBatchMerge = useCallback(() => {
+    const indicesToMerge = selectedForMerge
+      .map((selected, index) => (selected ? index : -1))
+      .filter((index) => index !== -1)
+      .sort((a, b) => a - b); // Sort ascending to keep first item
+
+    if (indicesToMerge.length < 2) {
+      alert("Please select at least 2 items to merge.");
+      return;
+    }
+
+    // Take the first item as the base
+    const firstIndex = indicesToMerge[0];
+    const mergedItem = { ...editedFields[firstIndex] };
+
+    // Sum up CTNS, STKS, BRUTO, FOB from all selected items
+    indicesToMerge.forEach((index) => {
+      if (index !== firstIndex) {
+        const item = editedFields[index];
+        mergedItem.CTNS += item.CTNS;
+        mergedItem.STKS += item.STKS;
+        mergedItem.BRUTO += item.BRUTO;
+        mergedItem.FOB += item.FOB;
+      }
+    });
+
+    // Remove all selected items except the first one
+    const indicesToRemove = indicesToMerge.slice(1).reverse();
+
+    setEditedFields((prev) => {
+      const newEditedFields = [...prev];
+      // Update the first item with merged values
+      newEditedFields[firstIndex] = mergedItem;
+      // Remove other items
+      indicesToRemove.forEach((index) => {
+        newEditedFields.splice(index, 1);
+      });
+      return newEditedFields;
+    });
+
+    setCheckedFields((prev) => {
+      const newCheckedFields = [...prev];
+      // Remove other items' checkboxes
+      indicesToRemove.forEach((index) => {
+        newCheckedFields.splice(index, 1);
+      });
+      return newCheckedFields;
+    });
+
+    // Clear merge selection
+    setSelectedForMerge([]);
+    setMergeSelectAll(false);
+    setIsMergeMode(false);
+  }, [
+    selectedForMerge,
+    editedFields,
+    setEditedFields,
+    setCheckedFields,
+    setSelectedForMerge,
+    setMergeSelectAll,
+    setIsMergeMode,
+  ]);
+
+  const selectedForMergeCount = useMemo(
+    () => selectedForMerge.filter(Boolean).length,
+    [selectedForMerge]
+  );
+
+  // Expand to Knowledge Base handler (admin only)
+  const handleExpandToKB = useCallback(async () => {
+    if (!isAdmin) {
+      alert("Admin access required");
+      return;
+    }
+
+    // Get all checked items
+    const selectedItems = editedFields.filter(
+      (_, index) => checkedFields[index]
+    );
+
+    if (selectedItems.length === 0) {
+      alert("Please select at least one item to add to the knowledge base");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to add ${selectedItems.length} selected item(s) to the knowledge base?`
+    );
+
+    if (!confirmed) return;
+
+    setIsExpandingToKB(true);
+
+    try {
+      const response = await fetch("/api/expand-werkbrief-to-kb", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: selectedItems,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(
+          `Successfully added ${
+            data.successCount
+          } items to the knowledge base!${
+            data.failedCount > 0
+              ? `\n${data.failedCount} items failed to process.`
+              : ""
+          }`
+        );
+      } else {
+        alert(`Failed to add items: ${data.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Expand to KB error:", error);
+      alert("Network error. Please check your connection and try again.");
+    } finally {
+      setIsExpandingToKB(false);
+    }
+  }, [isAdmin, editedFields, checkedFields]);
+
   // Generation function
   const onGenerate = async () => {
     setLoading(true);
@@ -885,6 +1073,12 @@ const WerkBriefHome = () => {
             onToggleDeleteMode={handleToggleDeleteMode}
             onBatchDelete={handleBatchDelete}
             selectedForDeletionCount={selectedForDeletionCount}
+            isMergeMode={isMergeMode}
+            onToggleMergeMode={handleToggleMergeMode}
+            onBatchMerge={handleBatchMerge}
+            selectedForMergeCount={selectedForMergeCount}
+            isAdmin={isAdmin}
+            onExpandToKB={handleExpandToKB}
           />
 
           <TableFilters
@@ -934,6 +1128,12 @@ const WerkBriefHome = () => {
             onDeleteSelectAll={handleDeleteSelectAll}
             selectedForDeletion={selectedForDeletion}
             onToggleDeleteSelection={handleToggleDeleteSelection}
+            isMergeMode={isMergeMode}
+            mergeSelectAll={mergeSelectAll}
+            onToggleMergeMode={handleToggleMergeMode}
+            onMergeSelectAll={handleMergeSelectAll}
+            selectedForMerge={selectedForMerge}
+            onToggleMergeSelection={handleToggleMergeSelection}
           />
 
           <TableFooter

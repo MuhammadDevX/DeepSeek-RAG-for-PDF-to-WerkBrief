@@ -135,60 +135,7 @@ async function processBatches<T, R>(
   return results;
 }
 
-/**
- * Consolidate products with the same goederen code on the same page
- * by summing their numeric values (CTNS, STKS, BRUTO, FOB)
- */
-function consolidateProductsByPageAndCode(
-  fields: Werkbrief["fields"]
-): Werkbrief["fields"] {
-  // Group by page number and goederen code
-  const groupMap = new Map<
-    string,
-    Werkbrief["fields"][0] & { count: number }
-  >();
-
-  fields.forEach((field) => {
-    const pageNumber = field["Page Number"];
-    const goederenCode = field["GOEDEREN CODE"];
-    const key = `${pageNumber}-${goederenCode}`;
-
-    if (groupMap.has(key)) {
-      // Product already exists, add values
-      const existing = groupMap.get(key)!;
-      existing.CTNS += field.CTNS;
-      existing.STKS += field.STKS;
-      existing.BRUTO += field.BRUTO;
-      existing.FOB += field.FOB;
-      existing.count += 1;
-
-      // Keep the longer/more detailed item description
-      if (
-        field["Item Description"].length > existing["Item Description"].length
-      ) {
-        existing["Item Description"] = field["Item Description"];
-      }
-
-      console.log(
-        `Consolidated duplicate: Page ${pageNumber}, Code ${goederenCode} (${existing.count} instances)`
-      );
-    } else {
-      // First occurrence of this page-code combination
-      groupMap.set(key, {
-        ...field,
-        count: 1,
-      });
-    }
-  });
-
-  // Convert map back to array, removing the count field
-  const consolidated = Array.from(groupMap.values()).map(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ({ count, ...field }) => field
-  );
-
-  return consolidated;
-}
+// Consolidation function removed - users can now manually merge products as needed
 
 export async function generateWerkbrief(
   description: string,
@@ -387,27 +334,20 @@ export async function generateWerkbrief(
       `Parallel processing completed. Total fields extracted: ${fields.length}`
     );
 
-    // Consolidate products with same goederen code on the same page
-    const consolidatedFields = consolidateProductsByPageAndCode(fields);
-
-    console.log(
-      `After consolidation: ${consolidatedFields.length} entries (reduced from ${fields.length})`
-    );
-
     if (!isProcessingComplete) {
       const completionMessage =
         missingPages.length > 0
           ? `Processing complete! Generated ${
-              consolidatedFields.length
-            } werkbrief entries (consolidated from ${fields.length}). ${
+              fields.length
+            } werkbrief entries. ${
               missingPages.length
             } gaps found in pages 1-${Math.max(...successfullyProcessedPages)}.`
-          : `Processing complete! Generated ${consolidatedFields.length} werkbrief entries (consolidated from ${fields.length}). All ${totalPages} pages processed successfully.`;
+          : `Processing complete! Generated ${fields.length} werkbrief entries. All ${totalPages} pages processed successfully.`;
 
       safeProgress({
         type: "complete",
         data: {
-          fields: consolidatedFields,
+          fields: fields,
           missingPages,
           totalPages: totalPages,
         },
@@ -419,7 +359,7 @@ export async function generateWerkbrief(
     }
 
     return {
-      fields: consolidatedFields,
+      fields: fields,
       missingPages,
       totalPages: totalPages,
     };

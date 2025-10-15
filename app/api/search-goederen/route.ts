@@ -6,6 +6,34 @@ import { createOpenAI } from "@ai-sdk/openai";
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? "" });
 
+// Simple in-memory cache with TTL
+const searchCache = new Map<string, { data: unknown; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey(query: string, topK: number): string {
+  return `${query.toLowerCase().trim()}_${topK}`;
+}
+
+function getFromCache(key: string) {
+  const cached = searchCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  if (cached) {
+    searchCache.delete(key); // Remove expired cache
+  }
+  return null;
+}
+
+function setCache(key: string, data: unknown) {
+  // Limit cache size to prevent memory issues
+  if (searchCache.size > 100) {
+    const firstKey = searchCache.keys().next().value;
+    searchCache.delete(firstKey);
+  }
+  searchCache.set(key, { data, timestamp: Date.now() });
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Check environment variables
@@ -35,6 +63,13 @@ export async function POST(request: NextRequest) {
         { error: "topK must be between 1 and 100" },
         { status: 400 }
       );
+    }
+
+    // Check cache first
+    const cacheKey = getCacheKey(query, numTopK);
+    const cachedResult = getFromCache(cacheKey);
+    if (cachedResult) {
+      return NextResponse.json(cachedResult);
     }
 
     const pc = new Pinecone({ apiKey: getEnvOrThrow("PINECONE_API_KEY") });
@@ -81,12 +116,18 @@ export async function POST(request: NextRequest) {
       metadata: match.metadata || {},
     }));
 
-    return NextResponse.json({
+    const response = {
       success: true,
       results: searchResults,
       query,
       topK: numTopK,
-    });
+      cached: false,
+    };
+
+    // Cache the result
+    setCache(cacheKey, response);
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Search error:", error);
     return NextResponse.json(

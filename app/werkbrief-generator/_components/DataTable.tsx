@@ -46,6 +46,12 @@ interface DataTableProps {
   onDeleteSelectAll?: () => void;
   selectedForDeletion?: boolean[];
   onToggleDeleteSelection?: (index: number) => void;
+  isMergeMode?: boolean;
+  mergeSelectAll?: boolean;
+  onToggleMergeMode?: () => void;
+  onMergeSelectAll?: () => void;
+  selectedForMerge?: boolean[];
+  onToggleMergeSelection?: (index: number) => void;
 }
 
 export const DataTable = React.memo(
@@ -76,6 +82,12 @@ export const DataTable = React.memo(
     onDeleteSelectAll,
     selectedForDeletion = [],
     onToggleDeleteSelection,
+    isMergeMode = false,
+    mergeSelectAll = false,
+    onToggleMergeMode,
+    onMergeSelectAll,
+    selectedForMerge = [],
+    onToggleMergeSelection,
   }: DataTableProps) => {
     return (
       <div
@@ -95,6 +107,10 @@ export const DataTable = React.memo(
                 deleteSelectAll={deleteSelectAll}
                 onToggleDeleteMode={onToggleDeleteMode}
                 onDeleteSelectAll={onDeleteSelectAll}
+                isMergeMode={isMergeMode}
+                mergeSelectAll={mergeSelectAll}
+                onToggleMergeMode={onToggleMergeMode}
+                onMergeSelectAll={onMergeSelectAll}
               />
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-700">
@@ -112,6 +128,8 @@ export const DataTable = React.memo(
                   const isChecked = checkedFields[originalIndex] || false;
                   const isSelectedForDel =
                     selectedForDeletion[originalIndex] || false;
+                  const isSelectedForMerge =
+                    selectedForMerge[originalIndex] || false;
 
                   return (
                     <TableRow
@@ -129,6 +147,9 @@ export const DataTable = React.memo(
                       isDeleteMode={isDeleteMode}
                       isSelectedForDeletion={isSelectedForDel}
                       onToggleDeleteSelection={onToggleDeleteSelection}
+                      isMergeMode={isMergeMode}
+                      isSelectedForMerge={isSelectedForMerge}
+                      onToggleMergeSelection={onToggleMergeSelection}
                     />
                   );
                 })}

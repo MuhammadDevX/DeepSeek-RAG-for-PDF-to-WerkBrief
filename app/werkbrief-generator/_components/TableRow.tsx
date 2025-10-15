@@ -27,6 +27,9 @@ interface TableRowProps {
   isDeleteMode?: boolean;
   isSelectedForDeletion?: boolean;
   onToggleDeleteSelection?: (index: number) => void;
+  isMergeMode?: boolean;
+  isSelectedForMerge?: boolean;
+  onToggleMergeSelection?: (index: number) => void;
 }
 
 const TableRow = memo(
@@ -44,6 +47,9 @@ const TableRow = memo(
     isDeleteMode = false,
     isSelectedForDeletion = false,
     onToggleDeleteSelection,
+    isMergeMode = false,
+    isSelectedForMerge = false,
+    onToggleMergeSelection,
   }: TableRowProps) => {
     const confidence = parseFloat(originalField.Confidence || "0");
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -51,13 +57,22 @@ const TableRow = memo(
     // Memoized event handlers to prevent unnecessary re-renders
     const handleCheckboxChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (isDeleteMode && onToggleDeleteSelection) {
+        if (isMergeMode && onToggleMergeSelection) {
+          onToggleMergeSelection(index);
+        } else if (isDeleteMode && onToggleDeleteSelection) {
           onToggleDeleteSelection(index);
         } else {
           onCheckboxChange(index, e.target.checked);
         }
       },
-      [index, isDeleteMode, onToggleDeleteSelection, onCheckboxChange]
+      [
+        index,
+        isMergeMode,
+        onToggleMergeSelection,
+        isDeleteMode,
+        onToggleDeleteSelection,
+        onCheckboxChange,
+      ]
     );
 
     const handleItemDescriptionChange = useCallback(
@@ -193,7 +208,9 @@ const TableRow = memo(
               ? "bg-white dark:bg-gray-900"
               : "bg-gray-50/50 dark:bg-gray-800/20"
           } ${
-            isDeleteMode && isSelectedForDeletion
+            isMergeMode && isSelectedForMerge
+              ? "bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500"
+              : isDeleteMode && isSelectedForDeletion
               ? "bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500"
               : ""
           } relative`}
@@ -201,15 +218,25 @@ const TableRow = memo(
           <td className="px-2 py-3 text-center sticky left-0 bg-inherit z-20">
             <input
               type="checkbox"
-              checked={isDeleteMode ? isSelectedForDeletion : isChecked}
+              checked={
+                isMergeMode
+                  ? isSelectedForMerge
+                  : isDeleteMode
+                  ? isSelectedForDeletion
+                  : isChecked
+              }
               onChange={handleCheckboxChange}
               className={`w-4 h-4 ${
-                isDeleteMode
+                isMergeMode
+                  ? "text-purple-600 focus:ring-purple-500 dark:focus:ring-purple-600"
+                  : isDeleteMode
                   ? "text-red-600 focus:ring-red-500 dark:focus:ring-red-600"
                   : "text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600"
               } bg-gray-100 border-gray-300 rounded focus:ring-2 dark:bg-gray-700 dark:border-gray-600 transition-colors duration-150`}
               title={
-                isDeleteMode
+                isMergeMode
+                  ? "Select for merging"
+                  : isDeleteMode
                   ? "Select for deletion"
                   : "Select for export to Excel"
               }
