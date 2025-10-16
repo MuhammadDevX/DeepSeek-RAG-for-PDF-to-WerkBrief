@@ -10,11 +10,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: "100mb",
+      bodySizeLimit: "200mb",
     },
   },
   serverRuntimeConfig: {
-    requestTimeout: 300000, // 5 minutes
+    requestTimeout: 1200000, // 20 minutes
   },
 };
 
