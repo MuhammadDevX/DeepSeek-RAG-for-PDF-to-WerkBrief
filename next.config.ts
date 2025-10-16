@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     },
   },
   serverRuntimeConfig: {
-    requestTimeout: 1200000, // 20 minutes
+    requestTimeout: 3600000, // 1 hour
   },
 };
 
