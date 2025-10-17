@@ -10,6 +10,7 @@ import { TotalBrutoSection } from "./_components/TotalBrutoSection";
 import { UndoNotification } from "./_components/UndoNotification";
 import { DataTable } from "./_components/DataTable";
 import { TableFooter } from "./_components/TableFooter";
+import { WerkbriefHistoryPanel } from "@/components/WerkbriefHistoryPanel";
 import { useTableData } from "./_components/hooks/useTableData";
 import { useKeyboardShortcuts } from "./_components/hooks/useKeyboardShortcuts";
 import { useBrutoManagement } from "./_components/hooks/useBrutoManagement";
@@ -53,6 +54,7 @@ const WerkBriefHome = () => {
   const { user } = useUser();
   const isAdmin = user?.publicMetadata?.role === "admin";
   const [isExpandingToKB, setIsExpandingToKB] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Get state from context
   const {
@@ -607,6 +609,7 @@ const WerkBriefHome = () => {
     // Remove all selected items except the first one
     const indicesToRemove = indicesToMerge.slice(1).reverse();
 
+    // Perform all state updates together
     setEditedFields((prev) => {
       const newEditedFields = [...prev];
       // Update the first item with merged values
@@ -627,7 +630,7 @@ const WerkBriefHome = () => {
       return newCheckedFields;
     });
 
-    // Clear merge selection
+    // Clear merge selection and exit merge mode immediately
     setSelectedForMerge([]);
     setMergeSelectAll(false);
     setIsMergeMode(false);
@@ -644,6 +647,57 @@ const WerkBriefHome = () => {
   const selectedForMergeCount = useMemo(
     () => selectedForMerge.filter(Boolean).length,
     [selectedForMerge]
+  );
+
+  // Save werkbrief to history
+  const saveToHistory = useCallback(async (werkbriefData: Werkbrief) => {
+    try {
+      const response = await fetch("/api/werkbrief/history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          werkbrief: werkbriefData,
+          metadata: {
+            totalItems: werkbriefData.fields?.length || 0,
+            totalPages: werkbriefData.totalPages,
+            missingPages: werkbriefData.missingPages,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        console.error("Failed to save to history:", data.error);
+      }
+    } catch (error) {
+      console.error("Error saving to history:", error);
+    }
+  }, []);
+
+  // Load werkbrief from history
+  const handleLoadFromHistory = useCallback(
+    (werkbriefData: unknown) => {
+      const parsed = WerkbriefSchema.safeParse(werkbriefData);
+      if (parsed.success) {
+        setResult(parsed.data);
+        setEditedFields([]);
+        setCheckedFields([]);
+        setDeletedRows([]);
+        setShowUndoNotification(false);
+        setIsHistoryOpen(false);
+      } else {
+        alert("Invalid werkbrief data");
+      }
+    },
+    [
+      setResult,
+      setEditedFields,
+      setCheckedFields,
+      setDeletedRows,
+      setShowUndoNotification,
+    ]
   );
 
   // Expand to Knowledge Base handler (admin only)
@@ -703,7 +757,7 @@ const WerkBriefHome = () => {
     } finally {
       setIsExpandingToKB(false);
     }
-  }, [isAdmin, editedFields, checkedFields]);
+  }, [isAdmin, editedFields, checkedFields, setIsExpandingToKB]);
 
   // Generation function
   const onGenerate = async () => {
@@ -830,6 +884,8 @@ const WerkBriefHome = () => {
                     if (parsed.success) {
                       setResult(parsed.data);
                       setIsTableLoading(false);
+                      // Auto-save to history
+                      saveToHistory(parsed.data);
                     } else {
                       console.error("Schema validation failed:", parsed.error);
                       throw new Error(
@@ -862,6 +918,8 @@ const WerkBriefHome = () => {
                 if (parsed.success) {
                   setResult(parsed.data);
                   setIsTableLoading(false);
+                  // Auto-save to history
+                  saveToHistory(parsed.data);
                 }
               }
             }
@@ -880,6 +938,8 @@ const WerkBriefHome = () => {
         }
         setResult(parsed.data);
         setIsTableLoading(false);
+        // Auto-save to history
+        saveToHistory(parsed.data);
       }
     } catch (e) {
       console.error("Error in onGenerate:", e);
@@ -961,7 +1021,32 @@ const WerkBriefHome = () => {
   }, [editedFields, checkedFields]);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-full mx-auto p-4">
+    <div className="flex flex-col items-center justify-center gap-5 w-full max-w-full mx-auto p-4 relative">
+      {/* Floating History Button - Always Accessible */}
+      <button
+        onClick={() => setIsHistoryOpen(true)}
+        className="fixed bottom-8 right-8 z-50 flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 group"
+        title="View werkbrief history (Always accessible)"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <span className="font-medium hidden group-hover:inline-block animate-in fade-in slide-in-from-right-2 duration-200">
+          History
+        </span>
+      </button>
+
       {/* Collapsible Upload Section */}
       {isUploadSectionCollapsed ? (
         // Collapsed State - Show small expand button
@@ -1079,6 +1164,8 @@ const WerkBriefHome = () => {
             selectedForMergeCount={selectedForMergeCount}
             isAdmin={isAdmin}
             onExpandToKB={handleExpandToKB}
+            isExpandingToKB={isExpandingToKB}
+            onOpenHistory={() => setIsHistoryOpen(true)}
           />
 
           <TableFilters
@@ -1146,6 +1233,13 @@ const WerkBriefHome = () => {
           />
         </div>
       )}
+
+      {/* History Panel */}
+      <WerkbriefHistoryPanel
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onLoadWerkbrief={handleLoadFromHistory}
+      />
     </div>
   );
 };

@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Merge,
   Database,
+  History,
 } from "lucide-react";
 
 interface TableHeaderProps {
@@ -41,6 +42,8 @@ interface TableHeaderProps {
   selectedForMergeCount?: number;
   isAdmin?: boolean;
   onExpandToKB?: () => void;
+  isExpandingToKB?: boolean;
+  onOpenHistory?: () => void;
 }
 
 export const TableHeader = React.memo(
@@ -68,6 +71,8 @@ export const TableHeader = React.memo(
     selectedForMergeCount = 0,
     isAdmin = false,
     onExpandToKB,
+    isExpandingToKB = false,
+    onOpenHistory,
   }: TableHeaderProps) => {
     return (
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b border-gray-200 dark:border-gray-700 p-6">
@@ -198,16 +203,31 @@ export const TableHeader = React.memo(
                 </>
               ) : (
                 <>
+                  {onOpenHistory && (
+                    <Button
+                      onClick={onOpenHistory}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20"
+                      title="View werkbrief history"
+                    >
+                      <History className="w-4 h-4" />
+                      <span className="hidden sm:inline">History</span>
+                    </Button>
+                  )}
                   {isAdmin && onExpandToKB && (
                     <Button
                       onClick={onExpandToKB}
                       variant="outline"
                       size="sm"
+                      disabled={isExpandingToKB}
                       className="flex items-center gap-2 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
                       title="Add selected items to knowledge base"
                     >
                       <Database className="w-4 h-4" />
-                      <span className="hidden sm:inline">Expand to KB</span>
+                      <span className="hidden sm:inline">
+                        {isExpandingToKB ? "Adding..." : "Expand to KB"}
+                      </span>
                     </Button>
                   )}
                   <Button
