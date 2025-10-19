@@ -26,6 +26,7 @@ export async function retrieveRelevantSnippets(
   });
 
   type Match = {
+    score?: number;
     metadata?: {
       text?: string;
       code?: string | number;
@@ -40,15 +41,17 @@ export async function retrieveRelevantSnippets(
     .map((m) => {
       if (!m.metadata) return "";
       const lines: string[] = [];
+      if (m.score !== undefined && m.score < 0.75) return "";
       if (m.metadata.desc) lines.push(`The Item: ${m.metadata.desc}`);
       if (m.metadata.gdesc)
         lines.push(`has Goederen Omschrijving: ${m.metadata.gdesc}`);
       if (m.metadata.code !== undefined)
         lines.push(`and GOEDEREN CODE: ${String(m.metadata.code)}`);
+      if(m.score !== undefined) return "confidence score is:" + m.score!;
       // if (m.metadata.category) lines.push(`Category: ${m.metadata.category}`)
       // Include any generic text field last if present
       // if (m.metadata.text) lines.push(`Text: ${m.metadata.text}`)
-      return lines.join("\n");
+      return "The retrieved snippets are the following:\n" + lines.join("\n");
     })
     .filter(Boolean);
   return snippets;

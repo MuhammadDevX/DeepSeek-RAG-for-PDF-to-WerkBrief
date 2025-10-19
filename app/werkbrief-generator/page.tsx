@@ -24,6 +24,7 @@ import {
   downloadExcelFile,
 } from "@/lib/excel-formatter";
 import { useUser } from "@clerk/nextjs";
+import { ToastContainer } from "@/components/ui/toast";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
 
@@ -55,6 +56,30 @@ const WerkBriefHome = () => {
   const isAdmin = user?.publicMetadata?.role === "admin";
   const [isExpandingToKB, setIsExpandingToKB] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Toast state
+  const [toasts, setToasts] = useState<
+    Array<{
+      id: string;
+      message: string;
+      type?: "success" | "info" | "warning" | "error";
+    }>
+  >([]);
+
+  const addToast = useCallback(
+    (
+      message: string,
+      type: "success" | "info" | "warning" | "error" = "info"
+    ) => {
+      const id = `toast-${Date.now()}-${Math.random()}`;
+      setToasts((prev) => [...prev, { id, message, type }]);
+    },
+    []
+  );
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   // Get state from context
   const {
@@ -630,6 +655,14 @@ const WerkBriefHome = () => {
       return newCheckedFields;
     });
 
+    // Show toast notification with merge details
+    const mergedRowsList = indicesToMerge.map((idx) => idx + 1).join(", ");
+    const resultingIndex = firstIndex + 1;
+    addToast(
+      `Successfully merged rows [${mergedRowsList}] into row ${resultingIndex}`,
+      "success"
+    );
+
     // Clear merge selection and exit merge mode immediately
     setSelectedForMerge([]);
     setMergeSelectAll(false);
@@ -642,6 +675,7 @@ const WerkBriefHome = () => {
     setSelectedForMerge,
     setMergeSelectAll,
     setIsMergeMode,
+    addToast,
   ]);
 
   const selectedForMergeCount = useMemo(
@@ -1240,6 +1274,9 @@ const WerkBriefHome = () => {
         onClose={() => setIsHistoryOpen(false)}
         onLoadWerkbrief={handleLoadFromHistory}
       />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 };
