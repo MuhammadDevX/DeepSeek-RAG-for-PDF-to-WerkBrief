@@ -248,7 +248,7 @@ export async function generateWerkbrief(
         const productsStep = await generateWerkbriefStep(
           `${
             description || "Generate a werkbrief for the invoice."
-          }\n\nThe Invoice extracted text is:\n${docContent}`,
+          }\n\nInvoice/PDF Context (extracted text):\n${docContent}`,
           pageNumber
         );
 

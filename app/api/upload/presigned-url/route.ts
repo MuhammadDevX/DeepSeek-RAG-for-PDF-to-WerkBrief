@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Presigned URL expires in 2 hours to allow for large file uploads
     const presignedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 3600, // URL expires in 1 hour for large files
+      expiresIn: 7200, // 2 hours (increased from 1 hour)
     });
 
     // Return both the presigned URL and the file key

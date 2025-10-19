@@ -12,6 +12,10 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   createServer(async (req, res) => {
     try {
+      // Set higher limits for request body size
+      req.setTimeout(3600000); // 1 hour timeout
+      res.setTimeout(3600000);
+
       const parsedUrl = parse(req.url, true);
       const { pathname, query } = parsedUrl;
 
@@ -27,8 +31,10 @@ app.prepare().then(() => {
       res.statusCode = 500;
       res.end("internal server error");
     }
-  }).listen(port, (err) => {
-    if (err) throw err;
-    console.log(`> Ready on http://${hostname}:${port}`);
-  });
+  })
+    .setTimeout(3600000) // 1 hour server timeout
+    .listen(port, (err) => {
+      if (err) throw err;
+      console.log(`> Ready on http://${hostname}:${port}`);
+    });
 });

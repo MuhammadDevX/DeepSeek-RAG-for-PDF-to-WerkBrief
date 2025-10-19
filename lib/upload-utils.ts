@@ -94,10 +94,11 @@ export async function uploadFileToSpacesWithProgress(
     // 1. Compress if possible (for future non-PDF files)
     const compressedFile = await compressFile(file);
 
-    // 2. Get presigned URL - now works for all file sizes
     console.log(
-      `Uploading ${compressedFile.size} byte file with simple upload`
+      `Uploading ${(compressedFile.size / (1024 * 1024)).toFixed(2)}MB file`
     );
+
+    // 2. Get presigned URL
     const presignedResponse = await fetch("/api/upload/presigned-url", {
       method: "POST",
       headers: {
@@ -169,14 +170,14 @@ export async function uploadFileToSpacesWithProgress(
       xhr.addEventListener("timeout", () => {
         resolve({
           success: false,
-          error: "Upload timeout",
+          error: "Upload timeout - please try again or check your connection",
         });
       });
 
       xhr.open("PUT", presignedUrl);
       xhr.setRequestHeader("Content-Type", compressedFile.type);
       xhr.setRequestHeader("Connection", "keep-alive");
-      xhr.timeout = 600000; // 10 minutes timeout for large files
+      xhr.timeout = 2400000; // 40 minutes timeout for large files
       xhr.send(compressedFile);
     });
   } catch (error) {
