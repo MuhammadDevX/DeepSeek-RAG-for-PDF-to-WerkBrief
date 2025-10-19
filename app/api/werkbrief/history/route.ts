@@ -107,13 +107,99 @@ export async function GET() {
       return dateB - dateA;
     });
 
-    // Get metadata for each history item
-    const historyItems = sortedContents.map((item) => ({
-      key: item.Key!,
-      lastModified: item.LastModified!.toISOString(),
-      size: item.Size!,
-      timestamp: item.Key!.split("/").pop()?.replace(".json", "") || "",
-    }));
+    // Get metadata for each history item by fetching the actual data
+    const historyItems = await Promise.all(
+      sortedContents.map(async (item) => {
+        try {
+          const getCommand = new GetObjectCommand({
+            Bucket: process.env.DO_SPACES_BUCKET,
+            Key: item.Key!,
+          });
+
+          const response = await s3Client.send(getCommand);
+          const bodyString = await response.Body?.transformToString();
+
+          if (bodyString) {
+            const historyData = JSON.parse(bodyString);
+            const werkbrief = historyData.werkbrief;
+
+            // Calculate aggregated metrics
+            const itemCount = werkbrief.fields?.length || 0;
+
+            type WerkbriefField = {
+              BRUTO?: number;
+              FOB?: number;
+              CTNS?: number;
+              STKS?: number;
+              "Item Description"?: string;
+            };
+
+            const totalBruto =
+              werkbrief.fields?.reduce(
+                (sum: number, field: WerkbriefField) =>
+                  sum + (field.BRUTO || 0),
+                0
+              ) || 0;
+            const totalFOB =
+              werkbrief.fields?.reduce(
+                (sum: number, field: WerkbriefField) => sum + (field.FOB || 0),
+                0
+              ) || 0;
+            const totalCTNS =
+              werkbrief.fields?.reduce(
+                (sum: number, field: WerkbriefField) => sum + (field.CTNS || 0),
+                0
+              ) || 0;
+            const totalSTKS =
+              werkbrief.fields?.reduce(
+                (sum: number, field: WerkbriefField) => sum + (field.STKS || 0),
+                0
+              ) || 0;
+
+            // Get unique product descriptions (first 3 for preview)
+            const uniqueDescriptions = [
+              ...new Set(
+                werkbrief.fields
+                  ?.slice(0, 5)
+                  .map((field: WerkbriefField) => field["Item Description"])
+                  .filter(Boolean)
+              ),
+            ].slice(0, 3);
+
+            return {
+              key: item.Key!,
+              lastModified: item.LastModified!.toISOString(),
+              size: item.Size!,
+              timestamp: item.Key!.split("/").pop()?.replace(".json", "") || "",
+              metadata: {
+                itemCount,
+                totalBruto: Math.round(totalBruto * 100) / 100,
+                totalFOB: Math.round(totalFOB * 100) / 100,
+                totalCTNS,
+                totalSTKS,
+                totalPages: werkbrief.totalPages || 0,
+                missingPages: werkbrief.missingPages || [],
+                previewDescriptions: uniqueDescriptions,
+                createdAt:
+                  historyData.metadata?.createdAt ||
+                  item.LastModified!.toISOString(),
+              },
+            };
+          }
+        } catch (error) {
+          console.error(`Error fetching metadata for ${item.Key}:`, error);
+        }
+
+        // Fallback if metadata fetch fails
+        return {
+          key: item.Key!,
+          lastModified: item.LastModified!.toISOString(),
+          size: item.Size!,
+          timestamp: item.Key!.split("/").pop()?.replace(".json", "") || "",
+          metadata: null,
+        };
+      })
+    );
 
     return NextResponse.json({
       success: true,
