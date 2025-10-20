@@ -7,8 +7,9 @@ import Link from "next/link";
 import { SearchGoederenModal } from "@/components/SearchGoederenModal";
 import { WerkbriefStateIndicator } from "@/components/WerkbriefStateIndicator";
 import { ResetDataButton } from "@/components/ResetDataButton";
-import { Search } from "lucide-react";
+import { Search, Superscript } from "lucide-react";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 export default function HeroSectionOne() {
   return (
     <div className="relative my-10 flex flex-col items-center justify-center">
@@ -24,7 +25,7 @@ export default function HeroSectionOne() {
       </div>
       <div className="px-4 py-10 md:py-20">
         <h1 className="relative z-10 mx-auto max-w-4xl text-center text-2xl font-bold text-slate-700 md:text-4xl lg:text-7xl dark:text-slate-300">
-          {"Revolutionalize Werkbrief creation with AI Agents"
+          {"Werkbrief creation with AI Agents"
             .split(" ")
             .map((word, index) => (
               <motion.span
@@ -133,8 +134,16 @@ export const Navbar = () => {
       <nav className="flex w-full items-center justify-between border-t border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
         <Link href={"/"}>
           <div className="flex items-center gap-2">
-            <div className="size-7 rounded-full bg-gradient-to-br from-violet-500 to-pink-500" />
-            <h1 className="text-base font-bold md:text-2xl">quickdeclare</h1>
+            <div className="relative w-[100px] h-[80px] ms-12 overflow-hidden">
+              <Image
+                src="/Quick declare.png"
+                alt="quickdeclare logo"
+                width={120}
+                height={31}
+                className="object-cover scale-150"
+              />
+            </div>
+            <h1 className="text-base font-bold md:text-2xl"></h1>
           </div>
         </Link>
         {!user ? (
