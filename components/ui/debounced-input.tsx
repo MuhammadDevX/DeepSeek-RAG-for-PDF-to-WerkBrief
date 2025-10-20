@@ -104,9 +104,10 @@ const DebouncedInput = React.memo(
             const hasOperator = /[+\-*/()]/.test(inputValue);
 
             if (!hasOperator) {
-              // Simple number, parse it directly
+              // Simple number, parse it directly but keep it as a number
               const numValue = parseFloat(inputValue);
               if (!isNaN(numValue)) {
+                // Keep localValue as a raw number, don't apply formatting here
                 setLocalValue(numValue);
               }
             }
@@ -117,7 +118,7 @@ const DebouncedInput = React.memo(
           setLocalValue(inputValue);
         }
       },
-      [type]
+      [type, precision]
     );
 
     // Auto-select content when field is focused
@@ -133,24 +134,25 @@ const DebouncedInput = React.memo(
     const handleBlur = useCallback(() => {
       isEditingRef.current = false;
       if (type === "number" && precision !== undefined) {
+        // Always use displayValue as the source of truth for what user typed
+        const currentValue = displayValue.trim();
+        
         // Check if the display value contains operators (it's an expression)
-        const hasOperator = /[+\-*/()]/.test(displayValue);
+        const hasOperator = /[+\-*/()]/.test(currentValue);
 
         let numValue: number;
         if (hasOperator) {
           // Evaluate the expression
-          numValue = evaluateExpression(displayValue);
+          numValue = evaluateExpression(currentValue);
           if (isNaN(numValue)) {
             numValue = Number(localValue); // Fallback to last valid value
           }
         } else {
-          numValue = Number(displayValue);
-        }
-
-        // Check if numValue is valid before proceeding
-        if (isNaN(numValue)) {
-          // If still invalid, use localValue as fallback
-          numValue = Number(localValue);
+          // Parse the current displayed value directly
+          numValue = parseFloat(currentValue);
+          if (isNaN(numValue)) {
+            numValue = Number(localValue); // Fallback to last valid value
+          }
         }
 
         // Only proceed if we have a valid number
@@ -163,11 +165,8 @@ const DebouncedInput = React.memo(
 
           setDisplayValue(formatted);
           // Update the actual value with the truncated number
-          const finalValue = truncatedValue;
-          if (finalValue !== localValue) {
-            setLocalValue(finalValue);
-            onChange(finalValue);
-          }
+          setLocalValue(truncatedValue);
+          onChange(truncatedValue);
         }
       }
     }, [
@@ -184,26 +183,28 @@ const DebouncedInput = React.memo(
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         if (e.key === "Enter") {
+          e.preventDefault(); // Prevent form submission
           isEditingRef.current = false;
           if (type === "number" && precision !== undefined) {
+            // Always use displayValue as the source of truth for what user typed
+            const currentValue = displayValue.trim();
+            
             // Check if the display value contains operators (it's an expression)
-            const hasOperator = /[+\-*/()]/.test(displayValue);
+            const hasOperator = /[+\-*/()]/.test(currentValue);
 
             let numValue: number;
             if (hasOperator) {
               // Evaluate the expression
-              numValue = evaluateExpression(displayValue);
+              numValue = evaluateExpression(currentValue);
               if (isNaN(numValue)) {
                 numValue = Number(localValue); // Fallback to last valid value
               }
             } else {
-              numValue = Number(displayValue);
-            }
-
-            // Check if numValue is valid before proceeding
-            if (isNaN(numValue)) {
-              // If still invalid, use localValue as fallback
-              numValue = Number(localValue);
+              // Parse the current displayed value directly
+              numValue = parseFloat(currentValue);
+              if (isNaN(numValue)) {
+                numValue = Number(localValue); // Fallback to last valid value
+              }
             }
 
             // Only proceed if we have a valid number
@@ -216,11 +217,8 @@ const DebouncedInput = React.memo(
 
               setDisplayValue(formatted);
               // Update the actual value with the truncated number
-              const finalValue = truncatedValue;
-              if (finalValue !== localValue) {
-                setLocalValue(finalValue);
-                onChange(finalValue);
-              }
+              setLocalValue(truncatedValue);
+              onChange(truncatedValue);
             }
           }
           // Blur the input to trigger debounced save

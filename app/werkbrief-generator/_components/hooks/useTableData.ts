@@ -115,13 +115,18 @@ export const useTableData = ({
       let processedValue = value;
       if (
         fieldName === "BRUTO" ||
-        fieldName === "FOB" ||
         fieldName === "CTNS" ||
         fieldName === "STKS"
       ) {
         const numValue =
           typeof value === "number" ? value : parseFloat(String(value)) || 0;
         processedValue = Number(numValue.toFixed(1));
+      }
+
+      if (fieldName === "FOB") {
+        const numValue =
+          typeof value === "number" ? value : parseFloat(String(value)) || 0;
+        processedValue = Number(numValue.toFixed(2));
       }
 
       setEditedFields((prev) => {

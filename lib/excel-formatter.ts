@@ -40,6 +40,15 @@ export function formatSelectedFieldsForExcel(
   fields: Werkbrief["fields"],
   checkedFields: boolean[]
 ): string {
+  // Helper function to safely convert to number
+  const toNumber = (value: string | number | undefined): number => {
+    if (value === undefined || value === null || value === "") {
+      return 0;
+    }
+    const num = typeof value === "number" ? value : parseFloat(String(value));
+    return isNaN(num) ? 0 : num;
+  };
+
   // Create Excel-compatible format with tab-separated values
   const headers = [
     "Number",
@@ -60,12 +69,12 @@ export function formatSelectedFieldsForExcel(
     if (checkedFields[index]) {
       const row = [
         rowNumber.toString(),
-        field["GOEDEREN OMSCHRIJVING"] || "",
-        field["GOEDEREN CODE"] || "",
-        (field.CTNS || 0).toString(),
-        (field.STKS || 0).toString(),
-        (field.BRUTO || 0).toString(),
-        (field.FOB || 0).toString(),
+        String(field["GOEDEREN OMSCHRIJVING"] || "").trim(),
+        String(field["GOEDEREN CODE"] || "").trim(),
+        Math.round(toNumber(field.CTNS)).toString(), // Integer values
+        Math.round(toNumber(field.STKS)).toString(), // Integer values
+        parseFloat(toNumber(field.BRUTO).toFixed(1)).toString(), // 1 decimal place
+        parseFloat(toNumber(field.FOB).toFixed(2)).toString(), // 2 decimal places
       ];
       excelData.push(row.join("\t"));
       rowNumber++;
@@ -118,6 +127,15 @@ export function downloadExcelFile(
     FOB: number;
   };
 
+  // Helper function to safely convert to number
+  const toNumber = (value: string | number | undefined): number => {
+    if (value === undefined || value === null || value === "") {
+      return 0;
+    }
+    const num = typeof value === "number" ? value : parseFloat(String(value));
+    return isNaN(num) ? 0 : num;
+  };
+
   // Prepare data for Excel export
   const exportData: ExportDataRow[] = [];
 
@@ -127,12 +145,14 @@ export function downloadExcelFile(
     if (checkedFields[index]) {
       exportData.push({
         Number: rowNumber,
-        "GOEDEREN OMSCHRIJVING": field["GOEDEREN OMSCHRIJVING"] || "",
-        "GOEDEREN CODE": field["GOEDEREN CODE"] || "",
-        CTNS: field.CTNS || 0,
-        STKS: field.STKS || 0,
-        BRUTO: field.BRUTO || 0,
-        FOB: field.FOB || 0,
+        "GOEDEREN OMSCHRIJVING": String(
+          field["GOEDEREN OMSCHRIJVING"] || ""
+        ).trim(),
+        "GOEDEREN CODE": String(field["GOEDEREN CODE"] || "").trim(),
+        CTNS: Math.round(toNumber(field.CTNS)), // Integer values
+        STKS: Math.round(toNumber(field.STKS)), // Integer values
+        BRUTO: parseFloat(toNumber(field.BRUTO).toFixed(1)), // 1 decimal place
+        FOB: parseFloat(toNumber(field.FOB).toFixed(2)), // 2 decimal places
       });
       rowNumber++;
     }
