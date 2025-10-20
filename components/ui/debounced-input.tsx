@@ -54,6 +54,24 @@ const DebouncedInput = React.memo(
       return () => clearTimeout(timer);
     }, [localValue, delay, onChange, value]);
 
+    // Helper function to truncate a number to specified decimal places without rounding
+    const truncateToDecimals = useCallback(
+      (num: number, decimals: number): number => {
+        const numStr = num.toString();
+        const decimalIndex = numStr.indexOf(".");
+
+        // If no decimal point or precision is 0, return the integer part
+        if (decimalIndex === -1 || decimals === 0) {
+          return Math.floor(num);
+        }
+
+        // Extract the truncated string up to the desired decimal places
+        const truncatedStr = numStr.slice(0, decimalIndex + decimals + 1);
+        return parseFloat(truncatedStr);
+      },
+      []
+    );
+
     // Helper function to evaluate simple mathematical expressions
     const evaluateExpression = useCallback((expr: string): number => {
       try {
@@ -72,7 +90,6 @@ const DebouncedInput = React.memo(
         return NaN;
       }
     }, []);
-
     const handleChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         isEditingRef.current = true;
@@ -127,20 +144,30 @@ const DebouncedInput = React.memo(
             numValue = Number(localValue); // Fallback to last valid value
           }
         } else {
+          numValue = Number(displayValue);
+        }
+
+        // Check if numValue is valid before proceeding
+        if (isNaN(numValue)) {
+          // If still invalid, use localValue as fallback
           numValue = Number(localValue);
         }
 
-        // Round to the specified precision
-        const roundedValue =
-          Math.round(numValue * Math.pow(10, precision)) /
-          Math.pow(10, precision);
-        const formatted = roundedValue.toFixed(precision);
-        setDisplayValue(formatted);
-        // Update the actual value with the parsed number
-        const finalValue = parseFloat(formatted);
-        if (finalValue !== localValue) {
-          setLocalValue(finalValue);
-          onChange(finalValue);
+        // Only proceed if we have a valid number
+        if (!isNaN(numValue) && isFinite(numValue)) {
+          // Truncate to the specified precision without rounding
+          const truncatedValue = truncateToDecimals(numValue, precision);
+
+          // Format the display with toFixed
+          const formatted = truncatedValue.toFixed(precision);
+
+          setDisplayValue(formatted);
+          // Update the actual value with the truncated number
+          const finalValue = truncatedValue;
+          if (finalValue !== localValue) {
+            setLocalValue(finalValue);
+            onChange(finalValue);
+          }
         }
       }
     }, [
@@ -149,6 +176,7 @@ const DebouncedInput = React.memo(
       localValue,
       displayValue,
       evaluateExpression,
+      truncateToDecimals,
       onChange,
     ]);
 
@@ -169,20 +197,30 @@ const DebouncedInput = React.memo(
                 numValue = Number(localValue); // Fallback to last valid value
               }
             } else {
+              numValue = Number(displayValue);
+            }
+
+            // Check if numValue is valid before proceeding
+            if (isNaN(numValue)) {
+              // If still invalid, use localValue as fallback
               numValue = Number(localValue);
             }
 
-            // Round to the specified precision
-            const roundedValue =
-              Math.round(numValue * Math.pow(10, precision)) /
-              Math.pow(10, precision);
-            const formatted = roundedValue.toFixed(precision);
-            setDisplayValue(formatted);
-            // Update the actual value with the parsed number
-            const finalValue = parseFloat(formatted);
-            if (finalValue !== localValue) {
-              setLocalValue(finalValue);
-              onChange(finalValue);
+            // Only proceed if we have a valid number
+            if (!isNaN(numValue) && isFinite(numValue)) {
+              // Truncate to the specified precision without rounding
+              const truncatedValue = truncateToDecimals(numValue, precision);
+
+              // Format the display with toFixed
+              const formatted = truncatedValue.toFixed(precision);
+
+              setDisplayValue(formatted);
+              // Update the actual value with the truncated number
+              const finalValue = truncatedValue;
+              if (finalValue !== localValue) {
+                setLocalValue(finalValue);
+                onChange(finalValue);
+              }
             }
           }
           // Blur the input to trigger debounced save
@@ -190,7 +228,15 @@ const DebouncedInput = React.memo(
           if (textareaRef.current) textareaRef.current.blur();
         }
       },
-      [type, precision, localValue, displayValue, evaluateExpression, onChange]
+      [
+        type,
+        precision,
+        localValue,
+        displayValue,
+        evaluateExpression,
+        truncateToDecimals,
+        onChange,
+      ]
     );
 
     if (type === "textarea") {
