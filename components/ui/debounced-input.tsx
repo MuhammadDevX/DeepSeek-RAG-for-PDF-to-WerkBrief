@@ -136,7 +136,7 @@ const DebouncedInput = React.memo(
       if (type === "number" && precision !== undefined) {
         // Always use displayValue as the source of truth for what user typed
         const currentValue = displayValue.trim();
-        
+
         // Check if the display value contains operators (it's an expression)
         const hasOperator = /[+\-*/()]/.test(currentValue);
 
@@ -188,7 +188,7 @@ const DebouncedInput = React.memo(
           if (type === "number" && precision !== undefined) {
             // Always use displayValue as the source of truth for what user typed
             const currentValue = displayValue.trim();
-            
+
             // Check if the display value contains operators (it's an expression)
             const hasOperator = /[+\-*/()]/.test(currentValue);
 
