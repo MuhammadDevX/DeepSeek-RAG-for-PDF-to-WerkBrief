@@ -16,6 +16,7 @@ import {
   Merge,
   Database,
   History,
+  Undo,
 } from "lucide-react";
 
 interface TableHeaderProps {
@@ -44,6 +45,9 @@ interface TableHeaderProps {
   onExpandToKB?: () => void;
   isExpandingToKB?: boolean;
   onOpenHistory?: () => void;
+  lastUploadedToKBIds?: string[];
+  onUndoKBUpload?: () => void;
+  isUndoingKBUpload?: boolean;
 }
 
 export const TableHeader = React.memo(
@@ -73,6 +77,9 @@ export const TableHeader = React.memo(
     onExpandToKB,
     isExpandingToKB = false,
     onOpenHistory,
+    lastUploadedToKBIds = [],
+    onUndoKBUpload,
+    isUndoingKBUpload = false,
   }: TableHeaderProps) => {
     return (
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-750 border-b border-gray-200 dark:border-gray-700 p-6">
@@ -216,19 +223,38 @@ export const TableHeader = React.memo(
                     </Button>
                   )}
                   {isAdmin && onExpandToKB && (
-                    <Button
-                      onClick={onExpandToKB}
-                      variant="outline"
-                      size="sm"
-                      disabled={isExpandingToKB}
-                      className="flex items-center gap-2 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
-                      title="Add selected items to knowledge base"
-                    >
-                      <Database className="w-4 h-4" />
-                      <span className="hidden sm:inline">
-                        {isExpandingToKB ? "Adding..." : "Expand to KB"}
-                      </span>
-                    </Button>
+                    <>
+                      <Button
+                        onClick={onExpandToKB}
+                        variant="outline"
+                        size="sm"
+                        disabled={isExpandingToKB}
+                        className="flex items-center gap-2 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
+                        title="Add selected items to knowledge base"
+                      >
+                        <Database className="w-4 h-4" />
+                        <span className="hidden sm:inline">
+                          {isExpandingToKB ? "Adding..." : "Expand to KB"}
+                        </span>
+                      </Button>
+                      {lastUploadedToKBIds.length > 0 && onUndoKBUpload && (
+                        <Button
+                          onClick={onUndoKBUpload}
+                          variant="outline"
+                          size="sm"
+                          disabled={isUndoingKBUpload}
+                          className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/20"
+                          title={`Undo last KB upload (${lastUploadedToKBIds.length} items)`}
+                        >
+                          <Undo className="w-4 h-4" />
+                          <span className="hidden sm:inline">
+                            {isUndoingKBUpload
+                              ? "Undoing..."
+                              : `Undo KB (${lastUploadedToKBIds.length})`}
+                          </span>
+                        </Button>
+                      )}
+                    </>
                   )}
                   <Button
                     onClick={onToggleMergeMode}

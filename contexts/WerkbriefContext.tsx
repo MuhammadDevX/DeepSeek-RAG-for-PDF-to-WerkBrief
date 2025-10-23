@@ -60,6 +60,10 @@ interface WerkbriefContextType {
   isUploading: boolean;
   setIsUploading: (isUploading: boolean) => void;
 
+  // Knowledge base upload state
+  lastUploadedToKBIds: string[];
+  setLastUploadedToKBIds: (ids: string[] | ((prev: string[]) => string[])) => void;
+
   // UI state
   searchTerm: string;
   setSearchTerm: (term: string) => void;
@@ -185,6 +189,9 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
   );
   const [isUploading, setIsUploading] = useState(false);
 
+  // Knowledge base upload state
+  const [lastUploadedToKBIds, setLastUploadedToKBIds] = useState<string[]>([]);
+
   // UI state
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -230,6 +237,7 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
     setLastFileKey(undefined);
     setUploadProgress(null);
     setIsUploading(false);
+    setLastUploadedToKBIds([]);
     setSearchTerm("");
     setCurrentPage(1);
     setItemsPerPage(50);
@@ -277,6 +285,10 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
       setUploadProgress,
       isUploading,
       setIsUploading,
+
+      // Knowledge base upload state
+      lastUploadedToKBIds,
+      setLastUploadedToKBIds,
 
       // UI state
       searchTerm,
@@ -343,6 +355,7 @@ export const WerkbriefProvider: React.FC<WerkbriefProviderProps> = ({
       lastFileKey,
       uploadProgress,
       isUploading,
+      lastUploadedToKBIds,
       searchTerm,
       currentPage,
       itemsPerPage,

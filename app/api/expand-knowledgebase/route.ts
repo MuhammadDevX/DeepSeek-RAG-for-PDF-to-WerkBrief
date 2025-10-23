@@ -64,13 +64,15 @@ export async function POST(request: NextRequest) {
         .then((result) => {
           if (!isControllerClosed) {
             try {
-              // Send final result
+              // Send final result with uploaded IDs
+              const uploadedIds = pineconeDocuments.map((doc) => doc.id);
               const data = JSON.stringify({
                 type: "complete",
                 data: {
                   ...result,
                   totalRows: excelData.rows.length,
                   columns: excelData.columns,
+                  uploadedIds, // Include the IDs for undo functionality
                 },
               });
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
@@ -123,6 +125,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Include uploaded IDs for undo functionality
+      const uploadedIds = pineconeDocuments.map((doc) => doc.id);
+
       return NextResponse.json({
         success: true,
         message: uploadResult.message,
@@ -130,6 +135,7 @@ export async function POST(request: NextRequest) {
         failedCount: uploadResult.failedCount || 0,
         totalRows: excelData.rows.length,
         columns: excelData.columns,
+        uploadedIds, // Include the IDs for undo functionality
       });
     }
   } catch (error) {

@@ -115,12 +115,16 @@ export async function POST(request: NextRequest) {
       await index.upsert(batch);
     }
 
+    // Return uploaded IDs for undo functionality
+    const uploadedIds = vectors.map((v) => v.id);
+
     return NextResponse.json({
       success: true,
       message: `Successfully added ${successCount} items to knowledge base`,
       successCount,
       failedCount,
       totalProcessed: items.length,
+      uploadedIds, // Include the IDs for undo functionality
     });
   } catch (error) {
     console.error("Batch add to knowledge base error:", error);

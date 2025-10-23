@@ -33,6 +33,7 @@ interface UploadResult {
   totalRows?: number;
   columns?: string[];
   error?: string;
+  uploadedIds?: string[]; // Add uploaded IDs for undo functionality
 }
 
 interface ProgressData {
@@ -62,6 +63,9 @@ export default function ExpandPage() {
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [lastUploadedIds, setLastUploadedIds] = useState<string[]>([]);
+  const [isUndoing, setIsUndoing] = useState(false);
+  const [singleItemId, setSingleItemId] = useState<string | null>(null);
 
   const handleFileSelect = (
     file: File | null,
@@ -72,6 +76,62 @@ export default function ExpandPage() {
     setExcelData(parsedExcelData || null);
     setValidationResult(validation || null);
     setUploadResult(null);
+    setLastUploadedIds([]); // Clear previous upload IDs
+    setSingleItemId(null); // Clear single item ID when selecting new file
+  };
+
+  const handleUndo = async () => {
+    if (lastUploadedIds.length === 0 && !singleItemId) {
+      alert("No recent upload to undo");
+      return;
+    }
+
+    const idsToDelete = singleItemId ? [singleItemId] : lastUploadedIds;
+    const itemCount = idsToDelete.length;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the ${itemCount} item${
+        itemCount > 1 ? "s" : ""
+      } that ${
+        itemCount > 1 ? "were" : "was"
+      } just uploaded to the knowledge base? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsUndoing(true);
+
+    try {
+      const response = await fetch("/api/delete-from-knowledgebase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ids: idsToDelete,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(
+          `Successfully removed ${result.deletedCount} item${
+            result.deletedCount > 1 ? "s" : ""
+          } from the knowledge base`
+        );
+        setLastUploadedIds([]);
+        setSingleItemId(null);
+        setUploadResult(null);
+      } else {
+        alert(`Failed to undo: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Undo error:", error);
+      alert("Network error. Please check your connection and try again.");
+    } finally {
+      setIsUndoing(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -128,13 +188,17 @@ export default function ExpandPage() {
                 } else if (data.type === "complete") {
                   setUploadResult(data.data);
                   setProgress(null);
+                  // Store uploaded IDs for undo functionality
+                  if (data.data.uploadedIds) {
+                    setLastUploadedIds(data.data.uploadedIds);
+                  }
                   if (data.data.success) {
                     // Reset form after successful upload
                     setTimeout(() => {
                       setSelectedFile(null);
                       setExcelData(null);
                       setValidationResult(null);
-                      setUploadResult(null);
+                      // Don't reset uploadResult and lastUploadedIds yet - keep for undo
                       if (document.querySelector('input[type="file"]')) {
                         (
                           document.querySelector(
@@ -172,13 +236,18 @@ export default function ExpandPage() {
         const result = await response.json();
         setUploadResult(result);
 
+        // Store uploaded IDs for undo functionality
+        if (result.uploadedIds) {
+          setLastUploadedIds(result.uploadedIds);
+        }
+
         if (result.success) {
           // Reset form after successful upload
           setTimeout(() => {
             setSelectedFile(null);
             setExcelData(null);
             setValidationResult(null);
-            setUploadResult(null);
+            // Don't reset uploadResult and lastUploadedIds yet - keep for undo
             if (document.querySelector('input[type="file"]')) {
               (
                 document.querySelector('input[type="file"]') as HTMLInputElement
@@ -219,7 +288,7 @@ export default function ExpandPage() {
           </p>
 
           {/* Add Single Item Button */}
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center gap-3">
             <Button
               onClick={() => setIsAddItemModalOpen(true)}
               variant="outline"
@@ -228,6 +297,28 @@ export default function ExpandPage() {
               <Plus className="h-4 w-4" />
               Add Single Item
             </Button>
+
+            {/* Show undo button for single item addition */}
+            {singleItemId && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2"
+              >
+                <div className="text-sm text-green-600 dark:text-green-400">
+                  ✓ Item added to KB
+                </div>
+                <Button
+                  onClick={handleUndo}
+                  variant="outline"
+                  size="sm"
+                  disabled={isUndoing}
+                  className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
+                >
+                  {isUndoing ? "Removing..." : "Undo"}
+                </Button>
+              </motion.div>
+            )}
           </div>
         </motion.div>
 
@@ -395,6 +486,40 @@ export default function ExpandPage() {
                       Error: {uploadResult.error}
                     </p>
                   )}
+
+                  {/* Undo Button */}
+                  {uploadResult.success &&
+                    lastUploadedIds.length > 0 &&
+                    !isUndoing && (
+                      <div className="mt-4">
+                        <Button
+                          onClick={handleUndo}
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
+                        >
+                          Undo Upload (Delete {lastUploadedIds.length} items
+                          from KB)
+                        </Button>
+                      </div>
+                    )}
+
+                  {/* Undoing indicator */}
+                  {isUndoing && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
+                        className="w-4 h-4"
+                      >
+                        <Upload className="w-4 h-4" />
+                      </motion.div>
+                      Removing items from knowledge base...
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -433,8 +558,12 @@ export default function ExpandPage() {
       <AddItemToKnowledgebaseModal
         isOpen={isAddItemModalOpen}
         onClose={() => setIsAddItemModalOpen(false)}
-        onSuccess={() => {
-          console.log("Item added successfully!");
+        onSuccess={(itemId) => {
+          console.log("Item added successfully with ID:", itemId);
+          setSingleItemId(itemId);
+          // Clear bulk upload IDs when adding single item
+          setLastUploadedIds([]);
+          setUploadResult(null);
         }}
       />
     </div>

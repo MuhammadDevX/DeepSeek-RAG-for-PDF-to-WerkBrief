@@ -56,6 +56,7 @@ const WerkBriefHome = () => {
   const isAdmin = user?.publicMetadata?.role === "admin";
   const [isExpandingToKB, setIsExpandingToKB] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isUndoingKBUpload, setIsUndoingKBUpload] = useState(false);
 
   // Toast state
   const [toasts, setToasts] = useState<
@@ -109,6 +110,10 @@ const WerkBriefHome = () => {
     setUploadProgress,
     isUploading,
     setIsUploading,
+
+    // Knowledge base upload state
+    lastUploadedToKBIds,
+    setLastUploadedToKBIds,
 
     // UI state
     searchTerm,
@@ -773,14 +778,18 @@ const WerkBriefHome = () => {
       const data = await response.json();
 
       if (data.success) {
-        alert(
-          `Successfully added ${
-            data.successCount
-          } items to the knowledge base!${
+        // Store uploaded IDs for undo functionality
+        if (data.uploadedIds) {
+          setLastUploadedToKBIds(data.uploadedIds);
+        }
+
+        addToast(
+          `Successfully added ${data.successCount} items to the knowledge base!${
             data.failedCount > 0
-              ? `\n${data.failedCount} items failed to process.`
+              ? ` ${data.failedCount} items failed to process.`
               : ""
-          }`
+          }`,
+          "success"
         );
       } else {
         alert(`Failed to add items: ${data.error || "Unknown error"}`);
@@ -791,7 +800,63 @@ const WerkBriefHome = () => {
     } finally {
       setIsExpandingToKB(false);
     }
-  }, [isAdmin, editedFields, checkedFields, setIsExpandingToKB]);
+  }, [isAdmin, editedFields, checkedFields, setLastUploadedToKBIds, addToast]);
+
+  // Undo KB upload handler (admin only)
+  const handleUndoKBUpload = useCallback(async () => {
+    if (!isAdmin) {
+      alert("Admin access required");
+      return;
+    }
+
+    if (lastUploadedToKBIds.length === 0) {
+      alert("No recent knowledge base upload to undo");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the ${lastUploadedToKBIds.length} items that were just uploaded to the knowledge base? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsUndoingKBUpload(true);
+
+    try {
+      const response = await fetch("/api/delete-from-knowledgebase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ids: lastUploadedToKBIds,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        addToast(
+          `Successfully removed ${result.deletedCount} items from the knowledge base`,
+          "success"
+        );
+        setLastUploadedToKBIds([]);
+      } else {
+        alert(`Failed to undo: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Undo KB upload error:", error);
+      alert("Network error. Please check your connection and try again.");
+    } finally {
+      setIsUndoingKBUpload(false);
+    }
+  }, [
+    isAdmin,
+    lastUploadedToKBIds,
+    setLastUploadedToKBIds,
+    setIsUndoingKBUpload,
+    addToast,
+  ]);
 
   // Generation function
   const onGenerate = async () => {
@@ -1200,6 +1265,9 @@ const WerkBriefHome = () => {
             onExpandToKB={handleExpandToKB}
             isExpandingToKB={isExpandingToKB}
             onOpenHistory={() => setIsHistoryOpen(true)}
+            lastUploadedToKBIds={lastUploadedToKBIds}
+            onUndoKBUpload={handleUndoKBUpload}
+            isUndoingKBUpload={isUndoingKBUpload}
           />
 
           <TableFilters

@@ -10,7 +10,7 @@ import { Plus, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 interface AddItemModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (itemId: string) => void; // Pass the item ID to parent
 }
 
 export function AddItemToKnowledgebaseModal({
@@ -50,6 +50,8 @@ export function AddItemToKnowledgebaseModal({
 
       if (data.success) {
         setSuccess(true);
+        const addedItemId = data.id;
+        
         setItemName("");
         setGoederenOmschrijving("");
         setGoederenCode("");
@@ -57,7 +59,9 @@ export function AddItemToKnowledgebaseModal({
 
         setTimeout(() => {
           setSuccess(false);
-          onSuccess?.();
+          if (addedItemId) {
+            onSuccess?.(addedItemId); // Pass the ID to parent
+          }
           onClose();
         }, 2000);
       } else {
