@@ -7,7 +7,7 @@ import Link from "next/link";
 import { SearchGoederenModal } from "@/components/SearchGoederenModal";
 import { WerkbriefStateIndicator } from "@/components/WerkbriefStateIndicator";
 import { ResetDataButton } from "@/components/ResetDataButton";
-import { Search, Superscript } from "lucide-react";
+import { Search } from "lucide-react";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 export default function HeroSectionOne() {

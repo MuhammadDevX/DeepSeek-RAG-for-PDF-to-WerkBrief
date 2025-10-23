@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { openai } from "@/config/agents";
-import { ProductsBoughtSchema, ProductFieldsSchema, Werkbrief } from "./schema";
+import { ProductsBoughtSchema, ProductFieldsSchema } from "./schema";
 import { productsAnalyzerPrompt, werkbriefSystemPrompt } from "./prompt";
 import { retrieveRelevantSnippets } from "./tool-pinecone";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
