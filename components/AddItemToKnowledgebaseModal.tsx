@@ -51,7 +51,7 @@ export function AddItemToKnowledgebaseModal({
       if (data.success) {
         setSuccess(true);
         const addedItemId = data.id;
-        
+
         setItemName("");
         setGoederenOmschrijving("");
         setGoederenCode("");

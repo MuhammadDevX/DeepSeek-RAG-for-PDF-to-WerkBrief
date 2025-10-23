@@ -62,7 +62,9 @@ interface WerkbriefContextType {
 
   // Knowledge base upload state
   lastUploadedToKBIds: string[];
-  setLastUploadedToKBIds: (ids: string[] | ((prev: string[]) => string[])) => void;
+  setLastUploadedToKBIds: (
+    ids: string[] | ((prev: string[]) => string[])
+  ) => void;
 
   // UI state
   searchTerm: string;

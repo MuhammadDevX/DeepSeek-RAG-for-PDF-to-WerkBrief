@@ -784,7 +784,9 @@ const WerkBriefHome = () => {
         }
 
         addToast(
-          `Successfully added ${data.successCount} items to the knowledge base!${
+          `Successfully added ${
+            data.successCount
+          } items to the knowledge base!${
             data.failedCount > 0
               ? ` ${data.failedCount} items failed to process.`
               : ""
