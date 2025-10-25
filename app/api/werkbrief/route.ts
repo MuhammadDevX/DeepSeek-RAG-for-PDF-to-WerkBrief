@@ -6,6 +6,7 @@ import {
 } from "@/lib/spaces-utils";
 
 export const runtime = "nodejs";
+export const maxDuration = 7200; // 2 hours for large file processing
 
 interface ProgressData {
   type: "progress" | "complete" | "error";
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest) {
           isControllerClosed = true;
           controller.close();
         }
-      }, 5 * 60 * 1000); // 5 minute timeout
+      }, 30 * 60 * 1000); // 30 minute timeout for large PDFs
 
       (async () => {
         try {

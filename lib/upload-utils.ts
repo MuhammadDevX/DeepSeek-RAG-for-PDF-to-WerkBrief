@@ -177,7 +177,7 @@ export async function uploadFileToSpacesWithProgress(
       xhr.open("PUT", presignedUrl);
       xhr.setRequestHeader("Content-Type", compressedFile.type);
       xhr.setRequestHeader("Connection", "keep-alive");
-      xhr.timeout = 2400000; // 40 minutes timeout for large files
+      xhr.timeout = 7200000; // 2 hours (120 minutes) timeout for large files
       xhr.send(compressedFile);
     });
   } catch (error) {

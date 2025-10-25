@@ -3,6 +3,8 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 
+export const maxDuration = 300; // 5 minutes for generating presigned URLs
+
 const s3Client = new S3Client({
   endpoint: process.env.DO_SPACES_ENDPOINT,
   region: process.env.DO_SPACES_REGION,

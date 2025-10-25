@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     },
   },
   serverRuntimeConfig: {
-    requestTimeout: 3600000, // 1 hour
+    requestTimeout: 7200000, // 2 hours (120 minutes) for large file processing
   },
 };
 
