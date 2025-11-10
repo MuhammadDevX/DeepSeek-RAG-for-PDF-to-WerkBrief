@@ -178,11 +178,18 @@ export const Navbar = () => {
               </Button>
             </Link>
             {user.publicMetadata.role === "admin" && (
-              <Link href={"/admin"}>
-                <Button size="sm" className="text-xs sm:text-sm">
-                  Admin
-                </Button>
-              </Link>
+              <>
+                <Link href={"/aruba-special"}>
+                  <Button size="sm" className="text-xs sm:text-sm">
+                    Ship2Aruba Special
+                  </Button>
+                </Link>
+                <Link href={"/admin"}>
+                  <Button size="sm" className="text-xs sm:text-sm">
+                    Admin
+                  </Button>
+                </Link>
+              </>
             )}
             <ResetDataButton />
             <UserButton />

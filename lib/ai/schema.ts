@@ -96,3 +96,74 @@ export const ProductsBoughtSchema = z.object({
 
 export type Products = z.infer<typeof ProductsBoughtSchema>;
 export type Werkbrief = z.infer<typeof WerkbriefSchema>;
+
+// Schema for Aruba Special - AI only fills in GOEDEREN CODE and OMSCHRIJVING
+export const ArubaProductFieldsSchema = z.object({
+  fields: z.array(
+    z.object({
+      "GOEDEREN OMSCHRIJVING": z.string({
+        description:
+          "Description of the product goods in Dutch based from the snippets",
+      }),
+      "GOEDEREN CODE": z.string({
+        description: "Code for that product mentioned from the snippets",
+      }),
+      Confidence: z.string({
+        description:
+          "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
+      }),
+    })
+  ),
+});
+
+// Complete Aruba Special schema with extracted data from regex + AI enrichment
+export const ArubaSpecialSchema = z.object({
+  groups: z.array(
+    z.object({
+      clientName: z.string({
+        description: "Name of the client (PDF filename without extension)",
+      }),
+      fields: z.array(
+        z.object({
+          "Item Description": z.string({
+            description: "Description of the item from PDF",
+          }),
+          "GOEDEREN OMSCHRIJVING": z.string({
+            description:
+              "Description of the product goods in Dutch based from the snippets",
+          }),
+          "GOEDEREN CODE": z.string({
+            description: "Code for that product mentioned from the snippets",
+          }),
+          CTNS: z.number({
+            description:
+              "Cartons (number of cartons/packages for that product).",
+          }),
+          STKS: z.number({
+            description: "Stuks = pieces (total units inside cartons).",
+          }),
+          BRUTO: z.number({
+            description: "Bruto weight = gross weight (kg).",
+          }),
+          FOB: z.number({
+            description:
+              "Free on Board value = cost of goods at origin (without freight/insurance).",
+          }),
+          Confidence: z.string({
+            description:
+              "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
+          }),
+          "Page Number": z.number({
+            description:
+              "Page number from the PDF where this product was found",
+          }),
+        })
+      ),
+    })
+  ),
+  totalGroups: z.number({
+    description: "Total number of client groups (PDFs processed)",
+  }),
+});
+
+export type ArubaSpecial = z.infer<typeof ArubaSpecialSchema>;

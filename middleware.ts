@@ -1,35 +1,34 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)',
-  '/sign-up(.*)'])
-const isAdminRoute = createRouteMatcher(['/admin(.*)'])
-const isExpandRoute = createRouteMatcher(['/expand(.*)'])
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
+const isAdminRoute = createRouteMatcher(["/admin(.*)", "/aruba-special(.*)"]);
+const isExpandRoute = createRouteMatcher(["/expand(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
-    await auth.protect()
+    await auth.protect();
 
-    const { sessionClaims } = await auth()
-    const role = sessionClaims?.metadata?.role as string | undefined
+    const { sessionClaims } = await auth();
+    const role = sessionClaims?.metadata?.role as string | undefined;
 
-    if (isAdminRoute(req) && role !== 'admin') {
-      const url = new URL('/', req.url)
-      return NextResponse.redirect(url)
+    if (isAdminRoute(req) && role !== "admin") {
+      const url = new URL("/", req.url);
+      return NextResponse.redirect(url);
     }
 
-    if (isExpandRoute(req) && role !== 'admin' && role !== 'moderator') {
-      const url = new URL('/', req.url)
-      return NextResponse.redirect(url)
+    if (isExpandRoute(req) && role !== "admin" && role !== "moderator") {
+      const url = new URL("/", req.url);
+      return NextResponse.redirect(url);
     }
   }
-})
+});
 
 export const config = {
   matcher: [
     // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     // Always run for API routes
-    '/(api|trpc)(.*)',
+    "/(api|trpc)(.*)",
   ],
-}
+};

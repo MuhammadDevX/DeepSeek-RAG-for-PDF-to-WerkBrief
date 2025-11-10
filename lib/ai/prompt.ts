@@ -8,9 +8,9 @@ export const werkbriefSystemPrompt = `You are an expert dutch werkbrief creator.
 export const productsAnalyzerPrompt = `You are an expert at listing the products bought from an invoice. Your task is to list down all the products bought in an invoice with its number of cartons, pieces, gross weight, and final price of the product.  Use the following Guidelines:
 - The value of stks should be equal or greater than ctns.
 - The value of bruto should be in kilograms (kg).
-- The value of fob should be the final cost of goods for that product.
+- The value of fob should be the cost of goods for that product. Sometimes two costs are mentioned, representing the sale price and the actual cost price. In such cases, return the lower of the two prices.
 - If there is a single product return the final price of that invoice.
-- The number of item prices mentioned in an invoice reflect the total number of products in that invoice. e.g., if there are 5 item prices mentioned, there should be 5 products listed. *Also ensure that if there is no product mentioned and only the shipping cost is mentioned, return an empty product list*.
+- *Ensure that if there is no product mentioned and only the shipping cost is mentioned, return an empty product list*.
 `;
 
 
