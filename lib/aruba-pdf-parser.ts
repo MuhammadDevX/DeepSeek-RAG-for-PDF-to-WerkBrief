@@ -63,9 +63,16 @@ export function extractProductsFromArubaText(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // Skip "Seller of Record:" line and the next line (seller name)
+    // Skip "Seller of Record:" line
+    // If the line contains "Seller of Record:" followed by text on the same line, don't skip next line
+    // If the line ONLY contains "Seller of Record:", then skip the next line (which has the seller name)
     if (line.includes("Seller of Record:")) {
-      sellerOfRecordSkipNext = true;
+      // Check if seller name is on the same line
+      const sellerOnSameLine = line.split("Seller of Record:")[1].trim();
+      if (!sellerOnSameLine) {
+        // Seller name is on next line, so skip it
+        sellerOfRecordSkipNext = true;
+      }
       console.log(`   ⏭️ Skipping "Seller of Record" line`);
       continue;
     }
@@ -77,7 +84,9 @@ export function extractProductsFromArubaText(
     }
 
     // Check if line starts with ASIN pattern (B followed by 9 alphanumeric characters)
-    const asinMatch = line.match(/^([B][A-Z0-9]{9})(.*)$/);
+    // ASIN must be followed by a digit (like "120 Pcs") or letter (description start)
+    // NOT a dot (which would indicate it's a product category like BEAUTY6217.10.1090)
+    const asinMatch = line.match(/^(B[A-Z0-9]{9})([^.].*)$/);
 
     if (asinMatch) {
       // Save previous product if exists
@@ -107,22 +116,77 @@ export function extractProductsFromArubaText(
       descriptionBuffer = restOfLine;
     } else if (currentProduct) {
       // Check if this line contains the numerical data
-      // Data line format (all concatenated without spaces):
-      // PRODUCT_GROUP (2-4 letters) + HS_CODE (digits with dots) + EXPORT_CONTROL (alphanumeric) +
+      // Data line format (can have spaces in product category):
+      // PRODUCT_GROUP (letters/spaces like "OFFICE PRODUCT", "PET PRODUCTS", "TOY") +
+      // HS_CODE (digits with dots) + EXPORT_CONTROL (alphanumeric) +
       // COUNTRY_CODE (2 letters) + QUANTITY + NET_WEIGHT + UNIT_VALUE + TOTAL_VALUE
-      // Example: TOY4202.39.0000EAR99CN10.0013.9913.99
-      // Breakdown: TOY + 4202.39.0000 + EAR99 + CN + 1 + 0.00 + 13.99 + 13.99
+      // Examples:
+      //   TOY9505.90.6000EAR99CN20.8413.4926.98
+      //   OFFICE PRODUCT7326.90.6000EAR99CN10.6031.9931.99
+      //   PET PRODUCTS8421.21.0000EAR99CN10.3817.5917.59
+      //   MUSICAL INSTRUMENTS8540.81.0000EAR99US10.0438.6438.64 (split across lines)
 
-      // More robust pattern: Find the country code (2 capital letters) followed by numbers
-      const dataMatch = line.match(
-        /^([A-Z]{2,4})[\d.]+([A-Z0-9]+)([A-Z]{2})([\d.]+)$/
+      // Handle case where product category is split across lines (e.g., "MUSICAL" + "INSTRUMENTS" + data)
+      let lineToCheck = line;
+      let linesSkipped = 0;
+
+      // If current line is just uppercase letters (possible partial category), try combining with next lines
+      if (/^[A-Z\s]+$/.test(line) && i + 1 < lines.length) {
+        let combined = line;
+        let lookAheadIndex = i + 1;
+
+        console.log(`   🔍 Starting combination from: "${line}"`);
+
+        // Keep combining while we find uppercase letters or until we have a complete data line
+        while (lookAheadIndex < lines.length) {
+          const nextLine = lines[lookAheadIndex].trim();
+          console.log(
+            `   🔍 Looking at next line [${lookAheadIndex}]: "${nextLine}"`
+          );
+
+          // If next line is also just uppercase letters, combine it
+          if (/^[A-Z\s]+$/.test(nextLine)) {
+            combined += nextLine;
+            linesSkipped++;
+            lookAheadIndex++;
+            console.log(`   🔗 Combining: "${line}" + "${nextLine}"`);
+          }
+          // If next line contains numbers (data line), combine it too
+          // Data line can start with uppercase letter OR digit (e.g., "8540.81.0000EAR99US10.04...")
+          else if (/\d/.test(nextLine) && nextLine.length > 10) {
+            combined += nextLine;
+            linesSkipped++;
+            console.log(`   🔗 Adding data line: "${nextLine}"`);
+            break; // Stop here, we have the complete data line
+          } else {
+            console.log(
+              `   ❌ Line doesn't match any pattern, stopping combination`
+            );
+            break; // Stop if we hit something else
+          }
+        }
+
+        console.log(`   ✅ Final combined line: "${combined}"`);
+        lineToCheck = combined;
+      }
+
+      // More robust pattern: Match PRODUCT_GROUP (letters with optional spaces), then numbers
+      // Pattern: [LETTERS/SPACES][DIGITS/DOTS][ALPHANUMERIC][2-LETTER-COUNTRY][NUMBERS]
+      const dataMatch = lineToCheck.match(
+        /^[A-Z\s]{2,20}[\d.]+[A-Z0-9]+[A-Z]{2}[\d.]+$/
       );
 
       if (dataMatch) {
-        console.log(`   📊 Found data line: ${line}`);
+        console.log(`   📊 Found data line: ${lineToCheck}`);
+
+        // If we combined lines, skip them in the main loop
+        if (linesSkipped > 0) {
+          i += linesSkipped;
+          console.log(`   ⏭️ Skipped ${linesSkipped} combined lines`);
+        }
 
         // Extract everything after the country code (last 2 capital letters before numbers)
-        const countryCodeMatch = line.match(/([A-Z]{2})([\d.]+)$/);
+        const countryCodeMatch = lineToCheck.match(/([A-Z]{2})([\d.]+)$/);
 
         if (countryCodeMatch) {
           const numbersAfterCountry = countryCodeMatch[2];
@@ -131,15 +195,15 @@ export function extractProductsFromArubaText(
           );
 
           // Parse the concatenated numbers: QUANTITY + NET_WEIGHT + UNIT_VALUE + TOTAL_VALUE
-          // Example: 10.0013.9913.99 should be: 1, 0.00, 13.99, 13.99
+          // Example: 20.8413.4926.98 should be: 2, 0.84, 13.49, 26.98
+          // Example: 10.4011.9911.99 should be: 1, 0.40, 11.99, 11.99
           // Strategy: Use regex to extract 4 decimal values with specific patterns
-          // Pattern: (integer or decimal)(decimal)(decimal)(decimal)
-          // More specific: quantity can be integer, weights/prices have 2 decimal places
+          // Pattern: quantity (1-2 digits) + weight (0.XX or X.XX) + unit price (XX.XX) + total (XX.XX or XXX.XX)
 
-          // Try to match: (digits)(digit.digit{2})(digit+.digit{2})(digit+.digit{2})
-          // This handles: 1 0.00 13.99 13.99 or 10 5.50 25.99 259.90
+          // Try to match: (1-2 digits)(decimal with 2 places)(decimal with 2 places)(decimal with 2 places)
+          // This handles: 2 0.84 13.49 26.98 or 1 0.40 11.99 11.99
           const preciseMatch = numbersAfterCountry.match(
-            /^(\d+)(\d\.\d{2})(\d+\.\d{2})(\d+\.\d{2})$/
+            /^(\d{1,2})(\d\.\d{2})(\d+\.\d{2})(\d+\.\d{2})$/
           );
 
           if (preciseMatch) {
@@ -194,11 +258,16 @@ export function extractProductsFromArubaText(
             }
           }
         } else {
-          console.warn(`   ⚠️ Could not find country code pattern in: ${line}`);
+          console.warn(
+            `   ⚠️ Could not find country code pattern in: ${lineToCheck}`
+          );
         }
       } else {
-        // Part of description
-        descriptionBuffer += " " + line;
+        // Part of description (only add if not a split category line)
+        // Don't add lines that are just uppercase letters (they're likely part of data line)
+        if (!/^[A-Z\s]+$/.test(line) || line.length < 3) {
+          descriptionBuffer += " " + line;
+        }
       }
     }
   }
