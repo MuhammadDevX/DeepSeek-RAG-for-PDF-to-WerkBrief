@@ -25,17 +25,22 @@ export function extractProductsFromArubaText(
 ): ExtractedProduct[] {
   const products: ExtractedProduct[] = [];
 
-  // Find the product table section
+  console.log("🔍 Starting product extraction from Aruba invoice text...");
+
+  // Find the product table section - more flexible header matching
   // Table starts after headers and before totals section
   const tableStartRegex =
-    /ASIN\s+DESCRIPTION\s+PRODUCT GROUP\s+PE HS Code\s+EXPORT\s+CONTROL\s+NUMBER\s+COUNTRY\s+OF ORIGIN\s+QUANTITY\s+\(pcs\)\s+TOTAL NET\s+WEIGHT\s+\(kg\)\s+UNIT VALUE\s+TOTAL UNIT\s+VALUE\s+\(USD\)/i;
-  const tableEndRegex = /TOTAL ITEM VALUE|FREIGHT CHARGE|GIFT WRAP CHARGE/i;
+    /ASIN[\s\S]*?DESCRIPTION[\s\S]*?TOTAL UNIT[\s\S]*?VALUE[\s\S]*?\(USD\)/i;
+  const tableEndRegex = /TOTAL ITEM VALUE/i;
 
   const tableStartMatch = pdfText.match(tableStartRegex);
   if (!tableStartMatch) {
-    console.warn("Could not find product table headers in PDF");
+    console.warn("❌ Could not find product table headers in PDF");
+    console.log("PDF text preview:", pdfText.substring(0, 500));
     return products;
   }
+
+  console.log("✅ Found product table headers");
 
   const tableStartIndex = tableStartMatch.index! + tableStartMatch[0].length;
   const tableEndMatch = pdfText.substring(tableStartIndex).match(tableEndRegex);
@@ -44,24 +49,35 @@ export function extractProductsFromArubaText(
     : pdfText.length;
 
   const tableText = pdfText.substring(tableStartIndex, tableEndIndex).trim();
+  console.log(`📋 Table text length: ${tableText.length} characters`);
+  console.log("Table text preview:", tableText.substring(0, 300));
 
-  // Split into potential product rows
-  // Products are separated by line breaks and follow a pattern
+  // Split into lines for processing
   const lines = tableText.split("\n").filter((line) => line.trim().length > 0);
+  console.log(`📄 Processing ${lines.length} lines`);
 
   let currentProduct: Partial<ExtractedProduct> | null = null;
   let descriptionBuffer = "";
+  let sellerOfRecordSkipNext = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // Skip seller/record lines
+    // Skip "Seller of Record:" line and the next line (seller name)
     if (line.includes("Seller of Record:")) {
+      sellerOfRecordSkipNext = true;
+      console.log(`   ⏭️ Skipping "Seller of Record" line`);
       continue;
     }
 
-    // Check if line starts with ASIN pattern (B followed by alphanumeric)
-    const asinMatch = line.match(/^([B][A-Z0-9]{9})\s+(.+)/);
+    if (sellerOfRecordSkipNext) {
+      sellerOfRecordSkipNext = false;
+      console.log(`   ⏭️ Skipping seller name line: ${line}`);
+      continue;
+    }
+
+    // Check if line starts with ASIN pattern (B followed by 9 alphanumeric characters)
+    const asinMatch = line.match(/^([B][A-Z0-9]{9})(.*)$/);
 
     if (asinMatch) {
       // Save previous product if exists
@@ -74,6 +90,11 @@ export function extractProductsFromArubaText(
             pageMapping
           );
           products.push({ ...currentProduct, pageNumber } as ExtractedProduct);
+          console.log(`   ✅ Saved product: ${currentProduct.asin}`);
+        } else {
+          console.warn(
+            `   ⚠️ Incomplete product skipped: ${currentProduct.asin}`
+          );
         }
       }
 
@@ -81,25 +102,100 @@ export function extractProductsFromArubaText(
       const asin = asinMatch[1];
       const restOfLine = asinMatch[2];
 
+      console.log(`   🆕 Found new product ASIN: ${asin}`);
       currentProduct = { asin };
       descriptionBuffer = restOfLine;
     } else if (currentProduct) {
       // Check if this line contains the numerical data
+      // Data line format (all concatenated without spaces):
+      // PRODUCT_GROUP (2-4 letters) + HS_CODE (digits with dots) + EXPORT_CONTROL (alphanumeric) +
+      // COUNTRY_CODE (2 letters) + QUANTITY + NET_WEIGHT + UNIT_VALUE + TOTAL_VALUE
+      // Example: TOY4202.39.0000EAR99CN10.0013.9913.99
+      // Breakdown: TOY + 4202.39.0000 + EAR99 + CN + 1 + 0.00 + 13.99 + 13.99
+
+      // More robust pattern: Find the country code (2 capital letters) followed by numbers
       const dataMatch = line.match(
-        /([A-Z]{2})\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)$/
+        /^([A-Z]{2,4})[\d.]+([A-Z0-9]+)([A-Z]{2})([\d.]+)$/
       );
 
       if (dataMatch) {
-        // This line has the final numbers
-        const quantity = parseInt(dataMatch[2], 10);
-        const totalNetWeight = parseFloat(dataMatch[3]);
-        const unitValue = parseFloat(dataMatch[4]);
-        const totalUnitValue = parseFloat(dataMatch[5]);
+        console.log(`   📊 Found data line: ${line}`);
 
-        currentProduct.quantity = quantity;
-        currentProduct.totalNetWeight = totalNetWeight;
-        currentProduct.unitValue = unitValue;
-        currentProduct.totalUnitValue = totalUnitValue;
+        // Extract everything after the country code (last 2 capital letters before numbers)
+        const countryCodeMatch = line.match(/([A-Z]{2})([\d.]+)$/);
+
+        if (countryCodeMatch) {
+          const numbersAfterCountry = countryCodeMatch[2];
+          console.log(
+            `   🔢 Numbers after country code: ${numbersAfterCountry}`
+          );
+
+          // Parse the concatenated numbers: QUANTITY + NET_WEIGHT + UNIT_VALUE + TOTAL_VALUE
+          // Example: 10.0013.9913.99 should be: 1, 0.00, 13.99, 13.99
+          // Strategy: Use regex to extract 4 decimal values with specific patterns
+          // Pattern: (integer or decimal)(decimal)(decimal)(decimal)
+          // More specific: quantity can be integer, weights/prices have 2 decimal places
+
+          // Try to match: (digits)(digit.digit{2})(digit+.digit{2})(digit+.digit{2})
+          // This handles: 1 0.00 13.99 13.99 or 10 5.50 25.99 259.90
+          const preciseMatch = numbersAfterCountry.match(
+            /^(\d+)(\d\.\d{2})(\d+\.\d{2})(\d+\.\d{2})$/
+          );
+
+          if (preciseMatch) {
+            const quantity = parseFloat(preciseMatch[1]);
+            const totalNetWeight = parseFloat(preciseMatch[2]);
+            const unitValue = parseFloat(preciseMatch[3]);
+            const totalUnitValue = parseFloat(preciseMatch[4]);
+
+            console.log(
+              `   📐 Parsed values: qty=${quantity}, weight=${totalNetWeight}, unit=${unitValue}, total=${totalUnitValue}`
+            );
+
+            currentProduct.quantity = quantity;
+            currentProduct.totalNetWeight = totalNetWeight;
+            currentProduct.unitValue = unitValue;
+            currentProduct.totalUnitValue = totalUnitValue;
+
+            console.log(`   💰 Successfully extracted all values!`);
+          } else {
+            console.warn(
+              `   ⚠️ Could not parse number pattern from: ${numbersAfterCountry}`
+            );
+            console.log(`   🔍 Trying alternative parsing method...`);
+
+            // Fallback: Try to split by looking for price patterns (X.XX)
+            // Find all X.XX patterns and assume quantity is before the first one
+            const priceMatches = numbersAfterCountry.match(/\d+\.\d{2}/g);
+            const quantityMatch = numbersAfterCountry.match(/^(\d+)/);
+
+            if (priceMatches && priceMatches.length >= 3 && quantityMatch) {
+              const quantity = parseFloat(quantityMatch[1]);
+              const totalNetWeight = parseFloat(priceMatches[0]);
+              const unitValue = parseFloat(priceMatches[1]);
+              const totalUnitValue = parseFloat(priceMatches[2]);
+
+              console.log(
+                `   📐 Fallback parsed: qty=${quantity}, weight=${totalNetWeight}, unit=${unitValue}, total=${totalUnitValue}`
+              );
+
+              currentProduct.quantity = quantity;
+              currentProduct.totalNetWeight = totalNetWeight;
+              currentProduct.unitValue = unitValue;
+              currentProduct.totalUnitValue = totalUnitValue;
+
+              console.log(`   💰 Successfully extracted with fallback method!`);
+            } else {
+              console.warn(
+                `   ⚠️ Fallback also failed. Found ${
+                  priceMatches?.length || 0
+                } price patterns`
+              );
+            }
+          }
+        } else {
+          console.warn(`   ⚠️ Could not find country code pattern in: ${line}`);
+        }
       } else {
         // Part of description
         descriptionBuffer += " " + line;
@@ -117,9 +213,15 @@ export function extractProductsFromArubaText(
         pageMapping
       );
       products.push({ ...currentProduct, pageNumber } as ExtractedProduct);
+      console.log(`   ✅ Saved last product: ${currentProduct.asin}`);
+    } else {
+      console.warn(
+        `   ⚠️ Last product incomplete, skipped: ${currentProduct.asin}`
+      );
     }
   }
 
+  console.log(`✅ Extraction complete: Found ${products.length} products`);
   return products;
 }
 
@@ -231,7 +333,7 @@ export async function extractArubaInvoiceData(
 
   // Extract text with page mapping
   const { text, pageMapping } = await extractTextWithPageMapping(buffer);
-
+  console.log("Extracted text is:", text);
   // Extract products using regex
   const products = extractProductsFromArubaText(text, pageMapping);
 

@@ -6,6 +6,9 @@ import { ArubaFileUploadSection } from "./_components/ArubaFileUploadSection";
 import { UploadProgressBar } from "../werkbrief-generator/_components/UploadProgressBar";
 import { TableHeader } from "../werkbrief-generator/_components/TableHeader";
 import { TableFooter } from "../werkbrief-generator/_components/TableFooter";
+import { TableFilters } from "../werkbrief-generator/_components/TableFilters";
+import { TotalBrutoSection } from "../werkbrief-generator/_components/TotalBrutoSection";
+import { UndoNotification } from "../werkbrief-generator/_components/UndoNotification";
 import { useArubaSpecial } from "@/contexts/ArubaSpecialContext";
 import { uploadFileToSpacesWithProgress } from "@/lib/upload-utils";
 import {
@@ -22,7 +25,7 @@ type ArubaSpecial = z.infer<typeof ArubaSpecialSchema>;
 type ArubaField = ArubaSpecial["groups"][0]["fields"][0];
 
 const ArubaSpecialPage = () => {
-  // Get state from context
+  // Toast state
   const {
     pdfFiles,
     setPdfFiles,
@@ -54,6 +57,22 @@ const ArubaSpecialPage = () => {
     isUploadSectionCollapsed,
     setIsUploadSectionCollapsed,
     hasAutoCollapsed,
+    isDeleteMode,
+    setIsDeleteMode,
+    selectedForDeletion,
+    setSelectedForDeletion,
+    deleteSelectAll,
+    setDeleteSelectAll,
+    isMergeMode,
+    setIsMergeMode,
+    selectedForMerge,
+    setSelectedForMerge,
+    mergeSelectAll,
+    setMergeSelectAll,
+    deletedRows,
+    setDeletedRows,
+    showUndoNotification,
+    setShowUndoNotification,
   } = useArubaSpecial();
 
   // Memoize expensive calculations
@@ -72,6 +91,9 @@ const ArubaSpecialPage = () => {
       editedGroups.length > 0,
     [result, editedGroups.length]
   );
+
+  // Filters visibility state
+  const [showFilters, setShowFilters] = useState(false);
 
   // Auto-collapse upload section when table data is available (only once)
   React.useEffect(() => {
@@ -110,6 +132,161 @@ const ArubaSpecialPage = () => {
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
+
+  // Total Bruto Management (same logic as werkbrief)
+  const [totalBruto, setTotalBruto] = React.useState<number>(0);
+
+  // Calculate total bruto whenever editedGroups changes
+  React.useEffect(() => {
+    if (editedGroups.length > 0) {
+      const total = editedGroups.reduce((sum, group) => {
+        return (
+          sum +
+          group.fields.reduce((fieldSum, field) => {
+            const bruto =
+              typeof field.BRUTO === "number"
+                ? field.BRUTO
+                : parseFloat(String(field.BRUTO)) || 0;
+            return fieldSum + bruto;
+          }, 0)
+        );
+      }, 0);
+      setTotalBruto(Number(total.toFixed(1)));
+    } else {
+      setTotalBruto(0);
+    }
+  }, [editedGroups]);
+
+  // Redistribute bruto values based on FOB proportions (same logic as werkbrief)
+  const redistributeBrutoValues = React.useCallback(
+    (newTotalBruto: number) => {
+      if (editedGroups.length === 0) return;
+
+      // Flatten all fields from all groups
+      const allFields: Array<{
+        field: ArubaField;
+        groupIndex: number;
+        fieldIndex: number;
+      }> = [];
+
+      editedGroups.forEach((group, groupIndex) => {
+        group.fields.forEach((field, fieldIndex) => {
+          allFields.push({ field, groupIndex, fieldIndex });
+        });
+      });
+
+      // Calculate total FOB
+      const totalFOB = allFields.reduce((sum, { field }) => {
+        const fob =
+          typeof field.FOB === "number"
+            ? field.FOB
+            : parseFloat(String(field.FOB)) || 1;
+        return sum + fob;
+      }, 0);
+
+      if (totalFOB === 0) {
+        return;
+      }
+
+      // Calculate redistributed values with minimum weight constraint
+      const redistributedValues = allFields.map(({ field }) => {
+        const fob =
+          typeof field.FOB === "number"
+            ? field.FOB
+            : parseFloat(String(field.FOB)) || 1;
+        const newBruto = (newTotalBruto * fob) / totalFOB;
+        // Apply minimum weight constraint: ensure weight is at least 0.1 kg
+        const constrainedBruto = Math.max(newBruto, 0.1);
+        return Number(constrainedBruto.toFixed(1));
+      });
+
+      // Handle excess due to minimum constraints
+      let currentSum = redistributedValues.reduce(
+        (sum, value) => sum + value,
+        0
+      );
+
+      if (currentSum > newTotalBruto) {
+        const excess = Number((currentSum - newTotalBruto).toFixed(1));
+
+        // Find items that can be reduced
+        const adjustableIndices = redistributedValues
+          .map((value, index) => ({ value, index }))
+          .filter((item) => item.value > 0.1)
+          .sort((a, b) => b.value - a.value);
+
+        // Distribute the excess reduction
+        let remainingExcess = excess;
+        for (const item of adjustableIndices) {
+          if (remainingExcess <= 0) break;
+
+          const maxReduction = Math.min(
+            remainingExcess,
+            Number((item.value - 0.1).toFixed(1))
+          );
+
+          if (maxReduction > 0) {
+            redistributedValues[item.index] = Number(
+              (redistributedValues[item.index] - maxReduction).toFixed(1)
+            );
+            remainingExcess = Number(
+              (remainingExcess - maxReduction).toFixed(1)
+            );
+          }
+        }
+      }
+
+      // Handle any remaining rounding difference
+      currentSum = redistributedValues.reduce((sum, value) => sum + value, 0);
+      const difference = Number((newTotalBruto - currentSum).toFixed(1));
+
+      if (difference !== 0 && redistributedValues.length > 0) {
+        let adjustmentIndex = 0;
+        if (difference < 0) {
+          adjustmentIndex = redistributedValues.findIndex(
+            (value) => value + difference >= 0.1
+          );
+          if (adjustmentIndex === -1) adjustmentIndex = 0;
+        }
+
+        redistributedValues[adjustmentIndex] = Number(
+          (redistributedValues[adjustmentIndex] + difference).toFixed(1)
+        );
+
+        if (redistributedValues[adjustmentIndex] < 0.1) {
+          redistributedValues[adjustmentIndex] = 0.1;
+        }
+      }
+
+      // Update the groups with redistributed values
+      setEditedGroups((prev) => {
+        const newGroups = JSON.parse(JSON.stringify(prev));
+        let flatIndex = 0;
+
+        newGroups.forEach((group: { fields: ArubaField[] }) => {
+          group.fields.forEach((field: ArubaField) => {
+            field.BRUTO = redistributedValues[flatIndex];
+            flatIndex++;
+          });
+        });
+
+        return newGroups;
+      });
+    },
+    [editedGroups, setEditedGroups]
+  );
+
+  // Handle total bruto change (same as werkbrief)
+  const handleTotalBrutoChange = React.useCallback(
+    (value: string | number) => {
+      const newTotal =
+        typeof value === "number" ? value : parseFloat(String(value)) || 0;
+      const roundedTotal = Number(newTotal.toFixed(1));
+      setTotalBruto(roundedTotal);
+      redistributeBrutoValues(roundedTotal);
+    },
+    [redistributeBrutoValues]
+  );
 
   // Handle file selection (not upload yet)
   const handleFilesSelect = useCallback(
@@ -427,6 +604,425 @@ const ArubaSpecialPage = () => {
     [setEditedGroups]
   );
 
+  // Handle delete single row
+  const handleDeleteRow = useCallback(
+    (index: number) => {
+      setEditedGroups((prevGroups) => {
+        const newGroups = JSON.parse(JSON.stringify(prevGroups));
+        let currentIndex = 0;
+        let deletedRow: ArubaField | null = null;
+        let deletedGroupName = "";
+
+        for (const group of newGroups) {
+          for (let i = 0; i < group.fields.length; i++) {
+            if (currentIndex === index) {
+              deletedRow = group.fields[i];
+              deletedGroupName = group.clientName;
+              group.fields.splice(i, 1);
+
+              // Remove group if empty
+              if (group.fields.length === 0) {
+                const groupIdx = newGroups.findIndex(
+                  (g) => g.clientName === group.clientName
+                );
+                if (groupIdx !== -1) {
+                  newGroups.splice(groupIdx, 1);
+                }
+              }
+
+              // Store for undo
+              if (deletedRow) {
+                const batch: {
+                  rows: Array<{
+                    data: ArubaField;
+                    checked: boolean;
+                    globalIndex: number;
+                    groupIndex: number;
+                    clientName: string;
+                  }>;
+                  timestamp: number;
+                } = {
+                  rows: [
+                    {
+                      data: deletedRow,
+                      checked: checkedFields[index] || false,
+                      globalIndex: index,
+                      groupIndex: 0,
+                      clientName: deletedGroupName,
+                    },
+                  ],
+                  timestamp: Date.now(),
+                };
+                setDeletedRows((prev) => [...prev, batch]);
+                setShowUndoNotification(true);
+              }
+
+              return newGroups;
+            }
+            currentIndex++;
+          }
+        }
+
+        return newGroups;
+      });
+
+      // Clear checkbox states
+      setCheckedFields((prev) => {
+        const newChecked = [...prev];
+        newChecked.splice(index, 1);
+        return newChecked;
+      });
+    },
+    [
+      setEditedGroups,
+      setDeletedRows,
+      setShowUndoNotification,
+      setCheckedFields,
+      checkedFields,
+    ]
+  );
+
+  // Handle insert row
+  const handleAddItem = useCallback(
+    (index: number) => {
+      setEditedGroups((prevGroups) => {
+        const newGroups = JSON.parse(JSON.stringify(prevGroups));
+        let currentIndex = 0;
+
+        for (const group of newGroups) {
+          for (let i = 0; i < group.fields.length; i++) {
+            if (currentIndex === index) {
+              // Create new blank field
+              const newField: ArubaField = {
+                "Item Description": "",
+                "GOEDEREN OMSCHRIJVING": "",
+                "GOEDEREN CODE": "",
+                CTNS: 0,
+                STKS: 0,
+                BRUTO: 0,
+                FOB: 0,
+                Confidence: "0",
+                "Page Number": 0,
+              };
+
+              // Insert after current index
+              group.fields.splice(i + 1, 0, newField);
+              return newGroups;
+            }
+            currentIndex++;
+          }
+        }
+
+        return newGroups;
+      });
+
+      // Insert checkbox state
+      setCheckedFields((prev) => {
+        const newChecked = [...prev];
+        newChecked.splice(index + 1, 0, false);
+        return newChecked;
+      });
+    },
+    [setEditedGroups, setCheckedFields]
+  );
+
+  // Handle batch delete
+  const handleBatchDelete = useCallback(() => {
+    const indicesToDelete: number[] = [];
+    selectedForDeletion.forEach((isSelected, index) => {
+      if (isSelected) indicesToDelete.push(index);
+    });
+
+    if (indicesToDelete.length === 0) return;
+
+    const deletedBatch: Array<{
+      data: ArubaField;
+      checked: boolean;
+      globalIndex: number;
+      groupIndex: number;
+      clientName: string;
+    }> = [];
+
+    setEditedGroups((prevGroups) => {
+      const newGroups = JSON.parse(JSON.stringify(prevGroups));
+      let currentIndex = 0;
+      const toRemove: Array<{ groupIdx: number; fieldIdx: number }> = [];
+
+      for (let groupIdx = 0; groupIdx < newGroups.length; groupIdx++) {
+        const group = newGroups[groupIdx];
+        for (let fieldIdx = 0; fieldIdx < group.fields.length; fieldIdx++) {
+          if (indicesToDelete.includes(currentIndex)) {
+            deletedBatch.push({
+              data: group.fields[fieldIdx],
+              checked: checkedFields[currentIndex] || false,
+              globalIndex: currentIndex,
+              groupIndex: fieldIdx,
+              clientName: group.clientName,
+            });
+            toRemove.push({ groupIdx, fieldIdx });
+          }
+          currentIndex++;
+        }
+      }
+
+      // Remove in reverse order to maintain indices
+      toRemove.reverse().forEach(({ groupIdx, fieldIdx }) => {
+        newGroups[groupIdx].fields.splice(fieldIdx, 1);
+      });
+
+      // Remove empty groups
+      return newGroups.filter((group) => group.fields.length > 0);
+    });
+
+    // Store for undo
+    setDeletedRows((prev) => [
+      ...prev,
+      { rows: deletedBatch, timestamp: Date.now() },
+    ]);
+    setShowUndoNotification(true);
+
+    // Clear selections
+    setSelectedForDeletion([]);
+    setDeleteSelectAll(false);
+    setIsDeleteMode(false);
+  }, [
+    selectedForDeletion,
+    checkedFields,
+    setEditedGroups,
+    setDeletedRows,
+    setShowUndoNotification,
+    setSelectedForDeletion,
+    setDeleteSelectAll,
+    setIsDeleteMode,
+  ]);
+
+  // Handle merge rows
+  const handleMergeRows = useCallback(() => {
+    const indicesToMerge: number[] = [];
+    selectedForMerge.forEach((isSelected, index) => {
+      if (isSelected) indicesToMerge.push(index);
+    });
+
+    if (indicesToMerge.length < 2) {
+      alert("Please select at least 2 rows to merge");
+      return;
+    }
+
+    setEditedGroups((prevGroups) => {
+      const newGroups = JSON.parse(JSON.stringify(prevGroups));
+      let currentIndex = 0;
+      const rowsToMerge: Array<{
+        groupIdx: number;
+        fieldIdx: number;
+        field: ArubaField;
+      }> = [];
+
+      for (let groupIdx = 0; groupIdx < newGroups.length; groupIdx++) {
+        const group = newGroups[groupIdx];
+        for (let fieldIdx = 0; fieldIdx < group.fields.length; fieldIdx++) {
+          if (indicesToMerge.includes(currentIndex)) {
+            rowsToMerge.push({
+              groupIdx,
+              fieldIdx,
+              field: group.fields[fieldIdx],
+            });
+          }
+          currentIndex++;
+        }
+      }
+
+      if (rowsToMerge.length < 2) return newGroups;
+
+      // Merge into first row
+      const firstRow = rowsToMerge[0];
+      const mergedField = { ...firstRow.field };
+
+      // Sum numeric fields
+      mergedField.CTNS = rowsToMerge.reduce((sum, r) => sum + r.field.CTNS, 0);
+      mergedField.STKS = rowsToMerge.reduce((sum, r) => sum + r.field.STKS, 0);
+      mergedField.BRUTO = rowsToMerge.reduce(
+        (sum, r) => sum + r.field.BRUTO,
+        0
+      );
+      mergedField.FOB = rowsToMerge.reduce((sum, r) => sum + r.field.FOB, 0);
+
+      // Combine text fields (take first non-empty)
+      mergedField["Item Description"] = rowsToMerge
+        .map((r) => r.field["Item Description"])
+        .filter((d) => d.trim())
+        .join(" | ");
+      mergedField["GOEDEREN OMSCHRIJVING"] =
+        rowsToMerge
+          .map((r) => r.field["GOEDEREN OMSCHRIJVING"])
+          .filter((d) => d.trim())[0] || "";
+      mergedField["GOEDEREN CODE"] =
+        rowsToMerge
+          .map((r) => r.field["GOEDEREN CODE"])
+          .filter((c) => c.trim())[0] || "";
+
+      // Update first row
+      newGroups[firstRow.groupIdx].fields[firstRow.fieldIdx] = mergedField;
+
+      // Remove other rows (in reverse order)
+      rowsToMerge
+        .slice(1)
+        .reverse()
+        .forEach(({ groupIdx, fieldIdx }) => {
+          newGroups[groupIdx].fields.splice(fieldIdx, 1);
+        });
+
+      // Remove empty groups
+      return newGroups.filter((group) => group.fields.length > 0);
+    });
+
+    // Clear selections
+    setSelectedForMerge([]);
+    setMergeSelectAll(false);
+    setIsMergeMode(false);
+  }, [
+    selectedForMerge,
+    setEditedGroups,
+    setSelectedForMerge,
+    setMergeSelectAll,
+    setIsMergeMode,
+  ]);
+
+  // Undo last deletion
+  const undoLastDeletion = useCallback(() => {
+    if (deletedRows.length === 0) return;
+
+    const lastBatch = deletedRows[deletedRows.length - 1];
+
+    setEditedGroups((prevGroups) => {
+      const newGroups = JSON.parse(JSON.stringify(prevGroups));
+
+      // Sort by original index to restore in correct order
+      const sortedRows = [...lastBatch.rows].sort(
+        (a, b) => a.globalIndex - b.globalIndex
+      );
+
+      sortedRows.forEach((deletedRow) => {
+        // Find or create group
+        let group = newGroups.find(
+          (g) => g.clientName === deletedRow.clientName
+        );
+        if (!group) {
+          group = { clientName: deletedRow.clientName, fields: [] };
+          newGroups.push(group);
+        }
+
+        // Add row back to group
+        group.fields.push(deletedRow.data);
+      });
+
+      return newGroups;
+    });
+
+    // Remove from deleted rows
+    setDeletedRows((prev) => prev.slice(0, -1));
+    setShowUndoNotification(false);
+  }, [deletedRows, setEditedGroups, setDeletedRows, setShowUndoNotification]);
+
+  // Toggle filters visibility
+  const handleFiltersToggle = useCallback(() => {
+    setShowFilters((prev) => !prev);
+  }, []);
+
+  // Toggle delete mode
+  const handleToggleDeleteMode = useCallback(() => {
+    setIsDeleteMode((prev) => {
+      if (!prev) {
+        // Entering delete mode, clear merge selections
+        setIsMergeMode(false);
+        setSelectedForMerge([]);
+        setMergeSelectAll(false);
+      } else {
+        // Exiting delete mode, clear delete selections
+        setSelectedForDeletion([]);
+        setDeleteSelectAll(false);
+      }
+      return !prev;
+    });
+  }, [
+    setIsDeleteMode,
+    setIsMergeMode,
+    setSelectedForMerge,
+    setMergeSelectAll,
+    setSelectedForDeletion,
+    setDeleteSelectAll,
+  ]);
+
+  // Toggle merge mode
+  const handleToggleMergeMode = useCallback(() => {
+    setIsMergeMode((prev) => {
+      if (!prev) {
+        // Entering merge mode, clear delete selections
+        setIsDeleteMode(false);
+        setSelectedForDeletion([]);
+        setDeleteSelectAll(false);
+      } else {
+        // Exiting merge mode, clear merge selections
+        setSelectedForMerge([]);
+        setMergeSelectAll(false);
+      }
+      return !prev;
+    });
+  }, [
+    setIsMergeMode,
+    setIsDeleteMode,
+    setSelectedForDeletion,
+    setDeleteSelectAll,
+    setSelectedForMerge,
+    setMergeSelectAll,
+  ]);
+
+  // Toggle delete selection for single row
+  const handleToggleDeleteSelection = useCallback(
+    (index: number) => {
+      setSelectedForDeletion((prev) => {
+        const newSelection = [...prev];
+        newSelection[index] = !newSelection[index];
+        return newSelection;
+      });
+    },
+    [setSelectedForDeletion]
+  );
+
+  // Toggle merge selection for single row
+  const handleToggleMergeSelection = useCallback(
+    (index: number) => {
+      setSelectedForMerge((prev) => {
+        const newSelection = [...prev];
+        newSelection[index] = !newSelection[index];
+        return newSelection;
+      });
+    },
+    [setSelectedForMerge]
+  );
+
+  // Select all for deletion
+  const handleDeleteSelectAll = useCallback(() => {
+    setDeleteSelectAll((prev) => {
+      const newValue = !prev;
+      setSelectedForDeletion((fields) => fields.map(() => newValue));
+      return newValue;
+    });
+  }, [setDeleteSelectAll, setSelectedForDeletion]);
+
+  // Select all for merge
+  const handleMergeSelectAll = useCallback(() => {
+    setMergeSelectAll((prev) => {
+      const newValue = !prev;
+      setSelectedForMerge((fields) => fields.map(() => newValue));
+      return newValue;
+    });
+  }, [setMergeSelectAll, setSelectedForMerge]);
+
+  // Dismiss undo notification
+  const handleUndoDismiss = useCallback(() => {
+    setShowUndoNotification(false);
+  }, [setShowUndoNotification]);
+
   return (
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-full mx-auto p-4 relative">
       {/* Collapsible Upload Section */}
@@ -524,31 +1120,46 @@ const ArubaSpecialPage = () => {
         <div className={tableContainerClasses}>
           <TableHeader
             searchTerm=""
-            showFilters={false}
+            showFilters={showFilters}
             isTableExpanded={false}
             totalFilteredItems={totalItems}
             totalItems={totalItems}
             copied={copied}
             onSearchChange={() => {}}
-            onFiltersToggle={() => {}}
+            onFiltersToggle={handleFiltersToggle}
             onTableExpandToggle={() => {}}
             onDownload={handleDownload}
             onCopy={handleCopy}
-            isDeleteMode={false}
-            onToggleDeleteMode={() => {}}
-            onBatchDelete={() => {}}
-            selectedForDeletionCount={0}
-            isMergeMode={false}
-            onToggleMergeMode={() => {}}
-            onBatchMerge={() => {}}
-            selectedForMergeCount={0}
-            isAdmin={false}
-            onExpandToKB={() => {}}
-            isExpandingToKB={false}
-            onOpenHistory={() => {}}
-            lastUploadedToKBIds={[]}
-            onUndoKBUpload={() => {}}
-            isUndoingKBUpload={false}
+            isDeleteMode={isDeleteMode}
+            onToggleDeleteMode={handleToggleDeleteMode}
+            onBatchDelete={handleBatchDelete}
+            selectedForDeletionCount={
+              selectedForDeletion.filter(Boolean).length
+            }
+            isMergeMode={isMergeMode}
+            onToggleMergeMode={handleToggleMergeMode}
+            onBatchMerge={handleMergeRows}
+            selectedForMergeCount={selectedForMerge.filter(Boolean).length}
+          />
+
+          <TableFilters
+            showFilters={showFilters}
+            itemsPerPage={totalItems}
+            totalItems={totalItems}
+            sortConfig={{ key: null, direction: "asc" }}
+            onItemsPerPageChange={() => {}}
+            onSortClear={() => {}}
+          />
+
+          <TotalBrutoSection
+            totalBruto={totalBruto}
+            onTotalBrutoChange={handleTotalBrutoChange}
+          />
+
+          <UndoNotification
+            isVisible={showUndoNotification && deletedRows.length > 0}
+            onUndo={undoLastDeletion}
+            onDismiss={handleUndoDismiss}
           />
 
           {/* Data Table */}
@@ -574,8 +1185,22 @@ const ArubaSpecialPage = () => {
             onToggleGroupCollapse={toggleGroupCollapse}
             onCheckboxChange={handleCheckboxChange}
             onFieldChange={handleFieldChange}
+            onInsertRow={handleAddItem}
+            onDeleteRow={handleDeleteRow}
             bulkSelectAll={bulkSelectAll}
             onBulkSelectAll={handleBulkSelectAll}
+            isDeleteMode={isDeleteMode}
+            deleteSelectAll={deleteSelectAll}
+            onToggleDeleteMode={handleToggleDeleteMode}
+            onDeleteSelectAll={handleDeleteSelectAll}
+            selectedForDeletion={selectedForDeletion}
+            onToggleDeleteSelection={handleToggleDeleteSelection}
+            isMergeMode={isMergeMode}
+            mergeSelectAll={mergeSelectAll}
+            onToggleMergeMode={handleToggleMergeMode}
+            onMergeSelectAll={handleMergeSelectAll}
+            selectedForMerge={selectedForMerge}
+            onToggleMergeSelection={handleToggleMergeSelection}
           />
 
           <TableFooter
