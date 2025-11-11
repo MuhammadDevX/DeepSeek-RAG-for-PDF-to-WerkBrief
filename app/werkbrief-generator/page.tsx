@@ -12,7 +12,7 @@ import { DataTable } from "./_components/DataTable";
 import { TableFooter } from "./_components/TableFooter";
 import { WerkbriefHistoryPanel } from "@/components/WerkbriefHistoryPanel";
 import { useTableData } from "./_components/hooks/useTableData";
-import { useKeyboardShortcuts } from "./_components/hooks/useKeyboardShortcuts";
+import { useKeyboardShortcuts } from "@/lib/hooks/useKeyboardShortcuts";
 import { useBrutoManagement } from "./_components/hooks/useBrutoManagement";
 import { useWerkbrief } from "@/contexts/WerkbriefContext";
 import { z } from "zod";
@@ -308,7 +308,7 @@ const WerkBriefHome = () => {
     isTableExpanded,
     currentPage,
     totalPages,
-    editedFieldsLength: editedFields.length,
+    totalItems: editedFields.length,
     onTableExpandToggle: () => setIsTableExpanded(!isTableExpanded),
     onBulkSelectAll: handleBulkSelectAll,
     onGoToPage: goToPage,

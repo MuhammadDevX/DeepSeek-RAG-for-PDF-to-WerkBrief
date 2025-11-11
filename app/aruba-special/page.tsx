@@ -20,6 +20,7 @@ import { ToastContainer } from "@/components/ui/toast";
 import { z } from "zod";
 import { ArubaSpecialSchema } from "@/lib/ai/schema";
 import { ArubaDataTable } from "./_components/ArubaDataTable";
+import { useKeyboardShortcuts } from "@/lib/hooks/useKeyboardShortcuts";
 
 type ArubaSpecial = z.infer<typeof ArubaSpecialSchema>;
 type ArubaField = ArubaSpecial["groups"][0]["fields"][0];
@@ -73,12 +74,70 @@ const ArubaSpecialPage = () => {
     setDeletedRows,
     showUndoNotification,
     setShowUndoNotification,
+    searchTerm,
+    setSearchTerm,
+    sortConfig,
+    setSortConfig,
+    isTableExpanded,
+    setIsTableExpanded,
   } = useArubaSpecial();
 
   // Memoize expensive calculations
   const totalItems = useMemo(() => {
     return editedGroups.reduce((sum, group) => sum + group.fields.length, 0);
   }, [editedGroups]);
+
+  // Filter and sort groups based on search term and sort config
+  const filteredAndSortedGroups = useMemo(() => {
+    let processedGroups = editedGroups.map((group) => ({ ...group }));
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const lowerSearch = searchTerm.toLowerCase();
+      processedGroups = processedGroups
+        .map((group) => ({
+          ...group,
+          fields: group.fields.filter((field) =>
+            Object.values(field).some((value) =>
+              String(value).toLowerCase().includes(lowerSearch)
+            )
+          ),
+        }))
+        .filter((group) => group.fields.length > 0);
+    }
+
+    // Apply sorting
+    if (sortConfig.key) {
+      processedGroups = processedGroups.map((group) => ({
+        ...group,
+        fields: [...group.fields].sort((a, b) => {
+          const aVal = a[sortConfig.key!];
+          const bVal = b[sortConfig.key!];
+
+          // Handle numeric sorting
+          if (typeof aVal === "number" && typeof bVal === "number") {
+            return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+          }
+
+          // Handle string sorting
+          const aStr = String(aVal).toLowerCase();
+          const bStr = String(bVal).toLowerCase();
+          if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
+          if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
+          return 0;
+        }),
+      }));
+    }
+
+    return processedGroups;
+  }, [editedGroups, searchTerm, sortConfig]);
+
+  const totalFilteredItems = useMemo(() => {
+    return filteredAndSortedGroups.reduce(
+      (sum, group) => sum + group.fields.length,
+      0
+    );
+  }, [filteredAndSortedGroups]);
 
   const selectedCount = useMemo(
     () => checkedFields.filter(Boolean).length,
@@ -604,6 +663,82 @@ const ArubaSpecialPage = () => {
     [setEditedGroups]
   );
 
+  // Handle move row (renumbering)
+  const handleMoveRow = useCallback(
+    (fromGlobalIndex: number, toGlobalIndex: number) => {
+      if (
+        fromGlobalIndex === toGlobalIndex ||
+        toGlobalIndex < 0 ||
+        toGlobalIndex >= totalItems
+      ) {
+        return;
+      }
+
+      setEditedGroups((prevGroups) => {
+        const newGroups = JSON.parse(JSON.stringify(prevGroups));
+
+        // Flatten all fields with their group info
+        const flattenedFields: Array<{
+          field: ArubaField;
+          groupIndex: number;
+          clientName: string;
+        }> = [];
+
+        newGroups.forEach(
+          (
+            group: { fields: ArubaField[]; clientName: string },
+            groupIdx: number
+          ) => {
+            group.fields.forEach((field: ArubaField) => {
+              flattenedFields.push({
+                field,
+                groupIndex: groupIdx,
+                clientName: group.clientName,
+              });
+            });
+          }
+        );
+
+        // Move the field in the flattened array
+        const [movedItem] = flattenedFields.splice(fromGlobalIndex, 1);
+        flattenedFields.splice(toGlobalIndex, 0, movedItem);
+
+        // Reconstruct groups from flattened array
+        const reconstructedGroups: Array<{
+          clientName: string;
+          fields: ArubaField[];
+        }> = [];
+
+        flattenedFields.forEach((item) => {
+          let targetGroup = reconstructedGroups.find(
+            (g) => g.clientName === item.clientName
+          );
+
+          if (!targetGroup) {
+            targetGroup = {
+              clientName: item.clientName,
+              fields: [],
+            };
+            reconstructedGroups.push(targetGroup);
+          }
+
+          targetGroup.fields.push(item.field);
+        });
+
+        return reconstructedGroups;
+      });
+
+      // Move the checkbox state as well
+      setCheckedFields((prev) => {
+        const newCheckedFields = [...prev];
+        const [movedCheck] = newCheckedFields.splice(fromGlobalIndex, 1);
+        newCheckedFields.splice(toGlobalIndex, 0, movedCheck);
+        return newCheckedFields;
+      });
+    },
+    [totalItems, setEditedGroups, setCheckedFields]
+  );
+
   // Handle delete single row
   const handleDeleteRow = useCallback(
     (index: number) => {
@@ -928,6 +1063,46 @@ const ArubaSpecialPage = () => {
     setShowFilters((prev) => !prev);
   }, []);
 
+  // Sorting handlers
+  const handleSort = useCallback(
+    (key: keyof ArubaField) => {
+      setSortConfig((prev) => ({
+        key,
+        direction:
+          prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+      }));
+    },
+    [setSortConfig]
+  );
+
+  const handleSortClear = useCallback(() => {
+    setSortConfig({ key: null, direction: "asc" });
+  }, [setSortConfig]);
+
+  // Search handlers
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchTerm(value);
+    },
+    [setSearchTerm]
+  );
+
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm("");
+  }, [setSearchTerm]);
+
+  const handleTableExpandToggle = useCallback(() => {
+    setIsTableExpanded((prev) => !prev);
+  }, [setIsTableExpanded]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    isTableExpanded,
+    totalItems,
+    onTableExpandToggle: handleTableExpandToggle,
+    onBulkSelectAll: handleBulkSelectAll,
+  });
+
   // Toggle delete mode
   const handleToggleDeleteMode = useCallback(() => {
     setIsDeleteMode((prev) => {
@@ -1119,15 +1294,15 @@ const ArubaSpecialPage = () => {
       {hasTableData && (
         <div className={tableContainerClasses}>
           <TableHeader
-            searchTerm=""
+            searchTerm={searchTerm}
             showFilters={showFilters}
-            isTableExpanded={false}
-            totalFilteredItems={totalItems}
+            isTableExpanded={isTableExpanded}
+            totalFilteredItems={totalFilteredItems}
             totalItems={totalItems}
             copied={copied}
-            onSearchChange={() => {}}
+            onSearchChange={handleSearchChange}
             onFiltersToggle={handleFiltersToggle}
-            onTableExpandToggle={() => {}}
+            onTableExpandToggle={handleTableExpandToggle}
             onDownload={handleDownload}
             onCopy={handleCopy}
             isDeleteMode={isDeleteMode}
@@ -1146,9 +1321,9 @@ const ArubaSpecialPage = () => {
             showFilters={showFilters}
             itemsPerPage={totalItems}
             totalItems={totalItems}
-            sortConfig={{ key: null, direction: "asc" }}
+            sortConfig={sortConfig}
             onItemsPerPageChange={() => {}}
-            onSortClear={() => {}}
+            onSortClear={handleSortClear}
           />
 
           <TotalBrutoSection
@@ -1165,7 +1340,7 @@ const ArubaSpecialPage = () => {
           {/* Data Table */}
           <ArubaDataTable
             groups={
-              editedGroups as Array<{
+              filteredAndSortedGroups as Array<{
                 clientName: string;
                 fields: Array<{
                   "Item Description": string;
@@ -1187,6 +1362,7 @@ const ArubaSpecialPage = () => {
             onFieldChange={handleFieldChange}
             onInsertRow={handleAddItem}
             onDeleteRow={handleDeleteRow}
+            onMoveRow={handleMoveRow}
             bulkSelectAll={bulkSelectAll}
             onBulkSelectAll={handleBulkSelectAll}
             isDeleteMode={isDeleteMode}
@@ -1201,6 +1377,9 @@ const ArubaSpecialPage = () => {
             onMergeSelectAll={handleMergeSelectAll}
             selectedForMerge={selectedForMerge}
             onToggleMergeSelection={handleToggleMergeSelection}
+            sortConfig={sortConfig}
+            onSort={handleSort}
+            isTableExpanded={isTableExpanded}
           />
 
           <TableFooter

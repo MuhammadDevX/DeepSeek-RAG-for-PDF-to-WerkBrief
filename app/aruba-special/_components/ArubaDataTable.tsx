@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { GroupHeader } from "./GroupHeader";
 import ArubaTableRow from "./ArubaTableRow";
 
@@ -33,6 +34,7 @@ interface ArubaDataTableProps {
   ) => void;
   onInsertRow: (index: number) => void;
   onDeleteRow: (index: number) => void;
+  onMoveRow: (fromIndex: number, toIndex: number) => void;
   bulkSelectAll: boolean;
   onBulkSelectAll: () => void;
   isDeleteMode?: boolean;
@@ -52,6 +54,7 @@ interface ArubaDataTableProps {
     direction: "asc" | "desc";
   };
   onSort?: (key: keyof ArubaField) => void;
+  isTableExpanded?: boolean;
 }
 
 export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
@@ -63,6 +66,7 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
   onFieldChange,
   onInsertRow,
   onDeleteRow,
+  onMoveRow,
   bulkSelectAll,
   onBulkSelectAll,
   isDeleteMode = false,
@@ -79,6 +83,7 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
   onToggleMergeSelection,
   sortConfig,
   onSort,
+  isTableExpanded = false,
 }) => {
   // Calculate flat list with global indices and original fields
   const flatFields: Array<{
@@ -106,21 +111,49 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
     });
   });
 
-  // Sortable columns
-  const getSortIcon = (key: keyof ArubaField) => {
-    if (!sortConfig || sortConfig.key !== key) return null;
-    return sortConfig.direction === "asc" ? " ↑" : " ↓";
+  // Sortable header component
+  const SortableHeader: React.FC<{
+    sortKey: keyof ArubaField;
+    children: React.ReactNode;
+    className?: string;
+  }> = ({ sortKey, children, className = "" }) => {
+    const isSorted = sortConfig?.key === sortKey;
+    const isAsc = sortConfig?.direction === "asc";
+
+    return (
+      <th
+        className={`${className} ${
+          onSort
+            ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            : ""
+        }`}
+        onClick={() => onSort?.(sortKey)}
+      >
+        <div className="flex items-center gap-1 justify-center">
+          {children}
+          {onSort && isSorted && (
+            <span className="ml-1">
+              {isAsc ? (
+                <ChevronUp className="w-3 h-3" />
+              ) : (
+                <ChevronDown className="w-3 h-3" />
+              )}
+            </span>
+          )}
+        </div>
+      </th>
+    );
   };
 
-  const handleHeaderClick = (key: keyof ArubaField) => {
-    if (onSort) {
-      onSort(key);
-    }
-  };
+  // Sortable columns - removed getSortIcon and handleHeaderClick as they're replaced by SortableHeader
 
   return (
-    <div className="border rounded-lg overflow-hidden shadow-sm">
-      <div className="overflow-x-auto">
+    <div
+      className={`relative ${
+        isTableExpanded ? "h-[70vh]" : "max-h-screen"
+      } overflow-auto border rounded-lg shadow-sm`}
+    >
+      <div className="min-w-full">
         <table className="w-full border-collapse">
           <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
             <tr className="border-b-2 border-gray-300 dark:border-gray-600">
@@ -164,123 +197,73 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
               </th>
 
               {/* Item Description Header */}
-              <th
-                className={`p-3 text-left border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("Item Description")}
+              <SortableHeader
+                sortKey="Item Description"
+                className="p-3 text-left border-r font-semibold text-gray-700 dark:text-gray-300"
               >
                 Item Description
-                {getSortIcon("Item Description")}
-              </th>
+              </SortableHeader>
 
               {/* GOEDEREN OMSCHRIJVING Header */}
-              <th
-                className={`p-3 text-left border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() =>
-                  onSort && handleHeaderClick("GOEDEREN OMSCHRIJVING")
-                }
+              <SortableHeader
+                sortKey="GOEDEREN OMSCHRIJVING"
+                className="p-3 text-left border-r font-semibold text-gray-700 dark:text-gray-300"
               >
-                GOEDEREN OMSCHRIJVING
-                {getSortIcon("GOEDEREN OMSCHRIJVING")}
-              </th>
+                Goederen Omschrijving
+              </SortableHeader>
 
               {/* GOEDEREN CODE Header */}
-              <th
-                className={`p-3 text-left border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("GOEDEREN CODE")}
+              <SortableHeader
+                sortKey="GOEDEREN CODE"
+                className="p-3 text-left border-r font-semibold text-gray-700 dark:text-gray-300"
               >
-                GOEDEREN CODE
-                {getSortIcon("GOEDEREN CODE")}
-              </th>
+                Code
+              </SortableHeader>
 
               {/* CTNS Header */}
-              <th
-                className={`p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("CTNS")}
+              <SortableHeader
+                sortKey="CTNS"
+                className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300"
               >
                 CTNS
-                {getSortIcon("CTNS")}
-              </th>
+              </SortableHeader>
 
               {/* STKS Header */}
-              <th
-                className={`p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("STKS")}
+              <SortableHeader
+                sortKey="STKS"
+                className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300"
               >
                 STKS
-                {getSortIcon("STKS")}
-              </th>
+              </SortableHeader>
 
               {/* BRUTO Header */}
-              <th
-                className={`p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("BRUTO")}
+              <SortableHeader
+                sortKey="BRUTO"
+                className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300"
               >
-                BRUTO
-                {getSortIcon("BRUTO")}
-              </th>
+                Bruto
+              </SortableHeader>
 
               {/* FOB Header */}
-              <th
-                className={`p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("FOB")}
+              <SortableHeader
+                sortKey="FOB"
+                className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300"
               >
                 FOB
-                {getSortIcon("FOB")}
-              </th>
+              </SortableHeader>
 
               {/* Confidence Header */}
-              <th
-                className={`p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("Confidence")}
-              >
-                Confidence
-                {getSortIcon("Confidence")}
+              <th className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300">
+                Conf.
               </th>
 
               {/* Page Header */}
-              <th
-                className={`p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300 ${
-                  onSort
-                    ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    : ""
-                }`}
-                onClick={() => onSort && handleHeaderClick("Page Number")}
+              <SortableHeader
+                sortKey="Page Number"
+                className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300"
               >
                 Page
-                {getSortIcon("Page Number")}
-              </th>
+              </SortableHeader>
 
               {/* Search Header */}
               <th className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300">
@@ -318,11 +301,13 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
                         originalField={item.originalField}
                         globalIndex={item.globalIndex}
                         displayNumber={item.displayNumber}
+                        totalRows={flatFields.length}
                         isChecked={checkedFields[item.globalIndex] || false}
                         onCheckboxChange={onCheckboxChange}
                         onFieldChange={onFieldChange}
                         onInsertRow={onInsertRow}
                         onDeleteRow={onDeleteRow}
+                        onMoveRow={onMoveRow}
                         isDeleteMode={isDeleteMode}
                         isSelectedForDeletion={
                           selectedForDeletion[item.globalIndex] || false
