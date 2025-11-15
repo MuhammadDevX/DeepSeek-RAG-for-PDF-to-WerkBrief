@@ -355,7 +355,6 @@ export function downloadArubaExcelFile(
           s: {
             fill: { fgColor: { rgb: "4472C4" } }, // Blue color
             font: { color: { rgb: "FFFFFF" }, bold: true },
-            alignment: { horizontal: "center", vertical: "center" },
           },
         };
       }
