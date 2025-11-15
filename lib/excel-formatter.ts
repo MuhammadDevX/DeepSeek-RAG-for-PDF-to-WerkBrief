@@ -70,21 +70,48 @@ export function formatSelectedFieldsForExcel(
 
   // Filter fields based on checked status and add data rows
   let rowNumber = 1;
+  let totalCTNS = 0;
+  let totalSTKS = 0;
+  let totalBRUTO = 0;
+  let totalFOB = 0;
+
   fields.forEach((field, index) => {
     if (checkedFields[index]) {
+      const ctns = Math.round(toNumber(field.CTNS));
+      const stks = Math.round(toNumber(field.STKS));
+      const bruto = parseFloat(toNumber(field.BRUTO).toFixed(1));
+      const fob = parseFloat(toNumber(field.FOB).toFixed(2));
+
       const row = [
         rowNumber.toString(),
         String(field["GOEDEREN OMSCHRIJVING"] || "").trim(),
         String(field["GOEDEREN CODE"] || "").trim(),
-        Math.round(toNumber(field.CTNS)).toString(), // Integer values
-        Math.round(toNumber(field.STKS)).toString(), // Integer values
-        parseFloat(toNumber(field.BRUTO).toFixed(1)).toString(), // 1 decimal place
-        parseFloat(toNumber(field.FOB).toFixed(2)).toString(), // 2 decimal places
+        ctns.toString(), // Integer values
+        stks.toString(), // Integer values
+        bruto.toString(), // 1 decimal place
+        fob.toString(), // 2 decimal places
       ];
       excelData.push(row.join("\t"));
+
+      totalCTNS += ctns;
+      totalSTKS += stks;
+      totalBRUTO += bruto;
+      totalFOB += fob;
       rowNumber++;
     }
   });
+
+  // Add sum row
+  const sumRow = [
+    "",
+    "",
+    "",
+    totalCTNS.toString(),
+    totalSTKS.toString(),
+    parseFloat(totalBRUTO.toFixed(1)).toString(),
+    parseFloat(totalFOB.toFixed(2)).toString(),
+  ];
+  excelData.push(sumRow.join("\t"));
 
   return excelData.join("\n");
 }
@@ -177,6 +204,50 @@ export function downloadExcelFile(
       font: { bold: true },
     };
   }
+
+  // Calculate totals
+  let totalCTNS = 0;
+  let totalSTKS = 0;
+  let totalBRUTO = 0;
+  let totalFOB = 0;
+
+  exportData.forEach((row) => {
+    totalCTNS += row.CTNS;
+    totalSTKS += row.STKS;
+    totalBRUTO += row.BRUTO;
+    totalFOB += row.FOB;
+  });
+
+  // Add sum row with blue highlight
+  const sumRowIndex = exportData.length + 1; // +1 for header row
+
+  // Manually add sum row cells with proper styling
+  const sumRowData = [
+    { col: 0, val: "" },
+    { col: 1, val: "" },
+    { col: 2, val: "" },
+    { col: 3, val: totalCTNS },
+    { col: 4, val: totalSTKS },
+    { col: 5, val: parseFloat(totalBRUTO.toFixed(1)) },
+    { col: 6, val: parseFloat(totalFOB.toFixed(2)) },
+  ];
+
+  for (const { col, val } of sumRowData) {
+    const cellAddress = XLSX.utils.encode_cell({ r: sumRowIndex, c: col });
+    ws[cellAddress] = {
+      t: typeof val === "number" ? "n" : "s",
+      v: val,
+      s: {
+        fill: { fgColor: { rgb: "4472C4" } }, // Blue color
+        font: { color: { rgb: "FFFFFF" }, bold: true },
+      },
+    };
+  }
+
+  // Update range to include sum row
+  const newRange = XLSX.utils.decode_range(ws["!ref"] || "A1");
+  newRange.e.r = sumRowIndex;
+  ws["!ref"] = XLSX.utils.encode_range(newRange);
 
   // Auto-size columns for better readability
   const columnWidths = [
@@ -494,6 +565,10 @@ export function formatArubaForClipboard(
 
   let globalRowNumber = 1;
   let globalIndex = 0;
+  let totalCTNS = 0;
+  let totalSTKS = 0;
+  let totalBRUTO = 0;
+  let totalFOB = 0;
 
   for (const group of groups) {
     // Use consigneeName if available, otherwise use clientName
@@ -501,22 +576,45 @@ export function formatArubaForClipboard(
 
     for (const field of group.fields) {
       if (checkedFields[globalIndex]) {
+        const ctns = Math.round(toNumber(field.CTNS));
+        const stks = Math.round(toNumber(field.STKS));
+        const bruto = parseFloat(toNumber(field.BRUTO).toFixed(2));
+        const fob = parseFloat(toNumber(field.FOB).toFixed(2));
+
         const row = [
           globalRowNumber.toString(),
           displayName,
           String(field["GOEDEREN OMSCHRIJVING"] || "").trim(),
           String(field["GOEDEREN CODE"] || "").trim(),
-          Math.round(toNumber(field.CTNS)).toString(),
-          Math.round(toNumber(field.STKS)).toString(),
-          parseFloat(toNumber(field.BRUTO).toFixed(2)).toString(), // Changed to 2 decimal places
-          parseFloat(toNumber(field.FOB).toFixed(2)).toString(),
+          ctns.toString(),
+          stks.toString(),
+          bruto.toString(), // Changed to 2 decimal places
+          fob.toString(),
         ];
         excelData.push(row.join("\t"));
+
+        totalCTNS += ctns;
+        totalSTKS += stks;
+        totalBRUTO += bruto;
+        totalFOB += fob;
         globalRowNumber++;
       }
       globalIndex++;
     }
   }
+
+  // Add sum row
+  const sumRow = [
+    "",
+    "",
+    "",
+    "",
+    totalCTNS.toString(),
+    totalSTKS.toString(),
+    parseFloat(totalBRUTO.toFixed(2)).toString(),
+    parseFloat(totalFOB.toFixed(2)).toString(),
+  ];
+  excelData.push(sumRow.join("\t"));
 
   return excelData.join("\n");
 }
