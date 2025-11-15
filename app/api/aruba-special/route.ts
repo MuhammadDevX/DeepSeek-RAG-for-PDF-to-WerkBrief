@@ -228,6 +228,8 @@ export async function POST(req: NextRequest) {
 
               allGroups.push({
                 clientName: extractedData.clientName,
+                consigneeName: extractedData.consigneeName,
+                freightCharge: extractedData.freightCharge,
                 fields: enrichedFields,
               });
 
@@ -351,6 +353,12 @@ export async function POST(req: NextRequest) {
           file.fileName
         );
         console.log(`✅ Extracted ${extractedData.products.length} products`);
+        console.log(
+          `✅ Consignee: ${extractedData.consigneeName || "Not found"}`
+        );
+        console.log(
+          `✅ Freight Charge: ${extractedData.freightCharge || "Not found"}`
+        );
 
         console.log(`🤖 Enriching with AI...`);
         const enrichedFields = await processArubaInvoice(
@@ -364,6 +372,8 @@ export async function POST(req: NextRequest) {
 
         allGroups.push({
           clientName: extractedData.clientName,
+          consigneeName: extractedData.consigneeName,
+          freightCharge: extractedData.freightCharge,
           fields: enrichedFields,
         });
       } catch (error) {

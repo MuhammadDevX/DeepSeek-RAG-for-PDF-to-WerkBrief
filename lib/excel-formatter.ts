@@ -1,6 +1,9 @@
 import { Werkbrief } from "@/lib/ai/schema";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
+// Note: This function returns tab-separated format for clipboard
+// Tab-separated format doesn't support styling (bold headers, colored cells)
+// Styling is only available when downloading Excel files (.xlsx)
 export function formatForExcel(werkbrief: Werkbrief): string {
   // Create Excel-compatible format with tab-separated values
   const headers = [
@@ -50,6 +53,8 @@ export function formatSelectedFieldsForExcel(
   };
 
   // Create Excel-compatible format with tab-separated values
+  // Note: Tab-separated format for clipboard doesn't support styling (bold headers)
+  // Styling is only available when downloading Excel files (.xlsx)
   const headers = [
     "Number",
     "GOEDEREN OMSCHRIJVING",
@@ -162,6 +167,17 @@ export function downloadExcelFile(
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(exportData);
 
+  // Make column headers bold (row 0)
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    if (!ws[cellAddress]) continue;
+
+    ws[cellAddress].s = {
+      font: { bold: true },
+    };
+  }
+
   // Auto-size columns for better readability
   const columnWidths = [
     { wch: 8 }, // Number
@@ -197,6 +213,8 @@ type ArubaField = {
 
 type ArubaGroup = {
   clientName: string;
+  consigneeName?: string;
+  freightCharge?: number;
   fields: ArubaField[];
 };
 
@@ -226,7 +244,9 @@ type ArubaSummaryRow = {
 export function downloadArubaExcelFile(
   groups: ArubaGroup[],
   checkedFields: boolean[],
-  filename: string = "Client Data.xlsx"
+  filename: string = "Client Data.xlsx",
+  trackingNumber?: string,
+  initialSplit?: number
 ): void {
   // Helper function to safely convert to number
   const toNumber = (value: string | number | undefined): number => {
@@ -245,6 +265,9 @@ export function downloadArubaExcelFile(
 
   // Track global index for checked fields
   let globalIndex = 0;
+
+  // Track split number (increments for each tab)
+  let currentSplit = initialSplit || 1;
 
   // Create a tab for each client
   for (const group of groups) {
@@ -268,7 +291,7 @@ export function downloadArubaExcelFile(
           "GOEDEREN CODE": String(field["GOEDEREN CODE"] || "").trim(),
           CTNS: Math.round(toNumber(field.CTNS)),
           STKS: Math.round(toNumber(field.STKS)),
-          BRUTO: parseFloat(toNumber(field.BRUTO).toFixed(1)),
+          BRUTO: parseFloat(toNumber(field.BRUTO).toFixed(2)), // Changed to 2 decimal places
           FOB: parseFloat(toNumber(field.FOB).toFixed(2)),
         });
 
@@ -286,6 +309,81 @@ export function downloadArubaExcelFile(
     if (exportData.length > 0) {
       const ws = XLSX.utils.json_to_sheet(exportData);
 
+      // Add tracking number header if provided
+      if (trackingNumber) {
+        const headerText = `AWB - ${trackingNumber} - ${currentSplit}`;
+        XLSX.utils.sheet_add_aoa(ws, [[headerText]], { origin: "H1" });
+
+        // Make the tracking header bold
+        const headerCell = "H1";
+        if (!ws[headerCell]) ws[headerCell] = { t: "s", v: headerText };
+        ws[headerCell].s = {
+          font: { bold: true },
+        };
+      }
+
+      // Make all column headers bold (row 1 by default after json_to_sheet)
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!ws[cellAddress]) continue;
+
+        ws[cellAddress].s = {
+          font: { bold: true },
+        };
+      }
+
+      // Add sum row with blue highlight
+      const sumRowIndex = exportData.length + 1; // +1 for header row
+
+      // Manually add sum row cells with proper styling
+      const sumRowData = [
+        { col: 0, val: "" },
+        { col: 1, val: "" },
+        { col: 2, val: "" },
+        { col: 3, val: totalCTNS },
+        { col: 4, val: totalSTKS },
+        { col: 5, val: parseFloat(totalBRUTO.toFixed(2)) },
+        { col: 6, val: parseFloat(totalFOB.toFixed(2)) },
+      ];
+
+      for (const { col, val } of sumRowData) {
+        const cellAddress = XLSX.utils.encode_cell({ r: sumRowIndex, c: col });
+        ws[cellAddress] = {
+          t: typeof val === "number" ? "n" : "s",
+          v: val,
+          s: {
+            fill: { fgColor: { rgb: "4472C4" } }, // Blue color
+            font: { color: { rgb: "FFFFFF" }, bold: true },
+            alignment: { horizontal: "center", vertical: "center" },
+          },
+        };
+      }
+
+      // Update range to include sum row
+      const newRange = XLSX.utils.decode_range(ws["!ref"] || "A1");
+      newRange.e.r = sumRowIndex;
+      ws["!ref"] = XLSX.utils.encode_range(newRange);
+
+      // Add vracht row below sum row
+      if (group.freightCharge !== undefined) {
+        const vrachtRowIndex = sumRowIndex + 1;
+
+        // Add vracht row cells
+        ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 5 })] = {
+          t: "s",
+          v: "Vracht",
+        };
+        ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 6 })] = {
+          t: "n",
+          v: parseFloat(group.freightCharge.toFixed(2)),
+        };
+
+        // Update range to include vracht row
+        newRange.e.r = vrachtRowIndex;
+        ws["!ref"] = XLSX.utils.encode_range(newRange);
+      }
+
       // Auto-size columns
       const columnWidths = [
         { wch: 8 }, // Number
@@ -295,11 +393,21 @@ export function downloadArubaExcelFile(
         { wch: 8 }, // STKS
         { wch: 10 }, // BRUTO
         { wch: 10 }, // FOB
+        { wch: 25 }, // Extra column for tracking header
       ];
       ws["!cols"] = columnWidths;
 
-      // Sanitize sheet name (Excel has restrictions)
-      let sheetName = group.clientName.substring(0, 31); // Max 31 chars
+      // Extract the number from the PDF filename if it exists
+      // Format: [Number]-[Something].pdf -> extract the number
+      const numberMatch = group.clientName.match(/^(\d+)/);
+      const pdfNumber = numberMatch ? numberMatch[1] : "";
+
+      // Use consigneeName if available, otherwise use the full clientName
+      const displayName = group.consigneeName || group.clientName;
+
+      // Create sheet name: [Number]-[Client Name]
+      let sheetName = pdfNumber ? `${pdfNumber}-${displayName}` : displayName;
+      sheetName = sheetName.substring(0, 31); // Max 31 chars
       sheetName = sheetName.replace(/[:\\/?*\[\]]/g, "-"); // Remove invalid chars
 
       // Add worksheet to workbook
@@ -307,19 +415,33 @@ export function downloadArubaExcelFile(
 
       // Add to summary
       summaryData.push({
-        Client: group.clientName,
+        Client: displayName,
         "Total Items": itemCount,
         "Total CTNS": totalCTNS,
         "Total STKS": totalSTKS,
-        "Total BRUTO": parseFloat(totalBRUTO.toFixed(1)),
+        "Total BRUTO": parseFloat(totalBRUTO.toFixed(2)),
         "Total FOB": parseFloat(totalFOB.toFixed(2)),
       });
+
+      // Increment split number for next tab
+      currentSplit++;
     }
   }
 
   // Create summary sheet
   if (summaryData.length > 0) {
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+
+    // Make summary headers bold
+    const summaryRange = XLSX.utils.decode_range(summaryWs["!ref"] || "A1");
+    for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!summaryWs[cellAddress]) continue;
+
+      summaryWs[cellAddress].s = {
+        font: { bold: true },
+      };
+    }
 
     // Auto-size columns for summary
     const summaryColumnWidths = [
@@ -342,6 +464,8 @@ export function downloadArubaExcelFile(
 
 /**
  * Copy Aruba Special data to clipboard (tab-separated format)
+ * Note: Tab-separated format for clipboard doesn't support styling (bold headers, colored cells)
+ * Styling is only available when downloading Excel files (.xlsx)
  */
 export function formatArubaForClipboard(
   groups: ArubaGroup[],
@@ -373,16 +497,19 @@ export function formatArubaForClipboard(
   let globalIndex = 0;
 
   for (const group of groups) {
+    // Use consigneeName if available, otherwise use clientName
+    const displayName = group.consigneeName || group.clientName;
+
     for (const field of group.fields) {
       if (checkedFields[globalIndex]) {
         const row = [
           globalRowNumber.toString(),
-          group.clientName,
+          displayName,
           String(field["GOEDEREN OMSCHRIJVING"] || "").trim(),
           String(field["GOEDEREN CODE"] || "").trim(),
           Math.round(toNumber(field.CTNS)).toString(),
           Math.round(toNumber(field.STKS)).toString(),
-          parseFloat(toNumber(field.BRUTO).toFixed(1)).toString(),
+          parseFloat(toNumber(field.BRUTO).toFixed(2)).toString(), // Changed to 2 decimal places
           parseFloat(toNumber(field.FOB).toFixed(2)).toString(),
         ];
         excelData.push(row.join("\t"));

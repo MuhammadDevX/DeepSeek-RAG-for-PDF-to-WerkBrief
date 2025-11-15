@@ -11,6 +11,8 @@ export interface ExtractedProduct {
 export interface ExtractedInvoiceData {
   clientName: string;
   products: ExtractedProduct[];
+  consigneeName?: string;
+  freightCharge?: number;
 }
 
 /**
@@ -331,6 +333,50 @@ function getPageNumberForPosition(
 }
 
 /**
+ * Extract consignee name from PDF text
+ * Looks for the CONSIGNEE section and extracts the name (first line after CONSIGNEE)
+ */
+function extractConsigneeName(pdfText: string): string | undefined {
+  console.log("🔍 Extracting consignee name...");
+
+  // Pattern: CONSIGNEE followed by the name on next line(s)
+  // Example:
+  // CONSIGNEE
+  // Alexander Vrolijk
+  const consigneeMatch = pdfText.match(/CONSIGNEE\s+([^\n]+)/i);
+
+  if (consigneeMatch && consigneeMatch[1]) {
+    const name = consigneeMatch[1].trim();
+    console.log(`✅ Found consignee name: ${name}`);
+    return name;
+  }
+
+  console.warn("⚠️ Could not extract consignee name");
+  return undefined;
+}
+
+/**
+ * Extract freight charge from PDF text
+ * Looks for "FREIGHT CHARGE" followed by the numeric value
+ */
+function extractFreightCharge(pdfText: string): number | undefined {
+  console.log("🔍 Extracting freight charge...");
+
+  // Pattern: FREIGHT CHARGE followed by numeric value
+  // Example: FREIGHT CHARGE 29.92
+  const freightMatch = pdfText.match(/FREIGHT\s+CHARGE\s+([\d.]+)/i);
+
+  if (freightMatch && freightMatch[1]) {
+    const charge = parseFloat(freightMatch[1]);
+    console.log(`✅ Found freight charge: ${charge}`);
+    return charge;
+  }
+
+  console.warn("⚠️ Could not extract freight charge");
+  return undefined;
+}
+
+/**
  * Extract text from PDF buffer and create page mapping
  * @param buffer - PDF file buffer
  * @returns Object with full text and page position mapping
@@ -403,11 +449,18 @@ export async function extractArubaInvoiceData(
   // Extract text with page mapping
   const { text, pageMapping } = await extractTextWithPageMapping(buffer);
   console.log("Extracted text is:", text);
+
   // Extract products using regex
   const products = extractProductsFromArubaText(text, pageMapping);
+
+  // Extract consignee name and freight charge
+  const consigneeName = extractConsigneeName(text);
+  const freightCharge = extractFreightCharge(text);
 
   return {
     clientName,
     products,
+    consigneeName,
+    freightCharge,
   };
 }

@@ -123,6 +123,14 @@ export const ArubaSpecialSchema = z.object({
       clientName: z.string({
         description: "Name of the client (PDF filename without extension)",
       }),
+      consigneeName: z
+        .string()
+        .optional()
+        .describe("Name of the consignee extracted from the PDF"),
+      freightCharge: z
+        .number()
+        .optional()
+        .describe("Freight charge value extracted from the PDF"),
       fields: z.array(
         z.object({
           "Item Description": z.string({

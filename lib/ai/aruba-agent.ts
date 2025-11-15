@@ -237,8 +237,8 @@ export async function processArubaInvoice(
       "Item Description": product.description,
       "GOEDEREN OMSCHRIJVING": enrichedData["GOEDEREN OMSCHRIJVING"],
       "GOEDEREN CODE": enrichedData["GOEDEREN CODE"],
-      CTNS: 1, // Default to 1, can be edited by user
-      STKS: product.quantity,
+      CTNS: product.quantity, // Use quantity for CTNS
+      STKS: product.quantity, // Use quantity for STKS
       BRUTO: product.totalNetWeight,
       FOB: product.totalUnitValue,
       Confidence: enrichedData.Confidence,

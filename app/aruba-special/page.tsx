@@ -17,6 +17,7 @@ import {
   copyToClipboard,
 } from "@/lib/excel-formatter";
 import { ToastContainer } from "@/components/ui/toast";
+import { TrackingNumberModal } from "@/components/TrackingNumberModal";
 import { z } from "zod";
 import { ArubaSpecialSchema } from "@/lib/ai/schema";
 import { ArubaDataTable } from "./_components/ArubaDataTable";
@@ -176,6 +177,9 @@ const ArubaSpecialPage = () => {
       type?: "success" | "info" | "warning" | "error";
     }>
   >([]);
+
+  // State for tracking number modal
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
 
   const addToast = useCallback(
     (
@@ -564,6 +568,8 @@ const ArubaSpecialPage = () => {
     const formattedData = formatArubaForClipboard(
       editedGroups as Array<{
         clientName: string;
+        consigneeName?: string;
+        freightCharge?: number;
         fields: Array<{
           "Item Description": string;
           "GOEDEREN OMSCHRIJVING": string;
@@ -593,31 +599,47 @@ const ArubaSpecialPage = () => {
   // Handle download
   const handleDownload = useCallback(() => {
     if (!editedGroups || editedGroups.length === 0) return;
+    // Open modal to get tracking information
+    setIsTrackingModalOpen(true);
+  }, [editedGroups]);
 
-    try {
-      downloadArubaExcelFile(
-        editedGroups as Array<{
-          clientName: string;
-          fields: Array<{
-            "Item Description": string;
-            "GOEDEREN OMSCHRIJVING": string;
-            "GOEDEREN CODE": string;
-            CTNS: number;
-            STKS: number;
-            BRUTO: number;
-            FOB: number;
-            Confidence: string;
-            "Page Number": number;
-          }>;
-        }>,
-        checkedFields
-      );
-      addToast("Excel file downloaded!", "success");
-    } catch (error) {
-      console.error("Download error:", error);
-      addToast("Failed to download file", "error");
-    }
-  }, [editedGroups, checkedFields, addToast]);
+  // Handle download with tracking info
+  const handleDownloadWithTracking = useCallback(
+    (trackingNumber: string, split: number) => {
+      if (!editedGroups || editedGroups.length === 0) return;
+
+      try {
+        downloadArubaExcelFile(
+          editedGroups as Array<{
+            clientName: string;
+            consigneeName?: string;
+            freightCharge?: number;
+            fields: Array<{
+              "Item Description": string;
+              "GOEDEREN OMSCHRIJVING": string;
+              "GOEDEREN CODE": string;
+              CTNS: number;
+              STKS: number;
+              BRUTO: number;
+              FOB: number;
+              Confidence: string;
+              "Page Number": number;
+            }>;
+          }>,
+          checkedFields,
+          "Client Data.xlsx",
+          trackingNumber,
+          split
+        );
+        addToast("Excel file downloaded!", "success");
+        setIsTrackingModalOpen(false);
+      } catch (error) {
+        console.error("Download error:", error);
+        addToast("Failed to download file", "error");
+      }
+    },
+    [editedGroups, checkedFields, addToast]
+  );
 
   // Handle checkbox change
   const handleCheckboxChange = useCallback(
@@ -1087,10 +1109,6 @@ const ArubaSpecialPage = () => {
     [setSearchTerm]
   );
 
-  const handleClearSearch = useCallback(() => {
-    setSearchTerm("");
-  }, [setSearchTerm]);
-
   const handleTableExpandToggle = useCallback(() => {
     setIsTableExpanded((prev) => !prev);
   }, [setIsTableExpanded]);
@@ -1395,6 +1413,13 @@ const ArubaSpecialPage = () => {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Tracking Number Modal */}
+      <TrackingNumberModal
+        isOpen={isTrackingModalOpen}
+        onClose={() => setIsTrackingModalOpen(false)}
+        onConfirm={handleDownloadWithTracking}
+      />
     </div>
   );
 };
