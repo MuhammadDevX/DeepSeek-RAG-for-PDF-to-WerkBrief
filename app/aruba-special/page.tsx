@@ -22,11 +22,16 @@ import { z } from "zod";
 import { ArubaSpecialSchema } from "@/lib/ai/schema";
 import { ArubaDataTable } from "./_components/ArubaDataTable";
 import { useKeyboardShortcuts } from "@/lib/hooks/useKeyboardShortcuts";
+import { useUser } from "@clerk/nextjs";
 
 type ArubaSpecial = z.infer<typeof ArubaSpecialSchema>;
 type ArubaField = ArubaSpecial["groups"][0]["fields"][0];
 
 const ArubaSpecialPage = () => {
+  // Check if user is admin
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === "admin";
+
   // Toast state
   const {
     pdfFiles,
@@ -81,7 +86,13 @@ const ArubaSpecialPage = () => {
     setSortConfig,
     isTableExpanded,
     setIsTableExpanded,
+    lastUploadedToKBIds,
+    setLastUploadedToKBIds,
   } = useArubaSpecial();
+
+  // KB expansion state
+  const [isExpandingToKB, setIsExpandingToKB] = useState(false);
+  const [isUndoingKBUpload, setIsUndoingKBUpload] = useState(false);
 
   // Memoize expensive calculations
   const totalItems = useMemo(() => {
@@ -640,6 +651,129 @@ const ArubaSpecialPage = () => {
     },
     [editedGroups, checkedFields, addToast]
   );
+
+  // Expand to Knowledge Base handler (admin only)
+  const handleExpandToKB = useCallback(async () => {
+    if (!isAdmin) {
+      alert("Admin access required");
+      return;
+    }
+
+    // Flatten all fields from all groups
+    const allFields: ArubaField[] = [];
+    let globalIndex = 0;
+
+    editedGroups.forEach((group) => {
+      group.fields.forEach((field) => {
+        if (checkedFields[globalIndex]) {
+          allFields.push(field);
+        }
+        globalIndex++;
+      });
+    });
+
+    if (allFields.length === 0) {
+      alert("Please select at least one item to add to the knowledge base");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to add ${allFields.length} selected item(s) to the knowledge base?`
+    );
+
+    if (!confirmed) return;
+
+    setIsExpandingToKB(true);
+
+    try {
+      const response = await fetch("/api/expand-werkbrief-to-kb", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: allFields,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Store uploaded IDs for undo functionality
+        if (data.uploadedIds) {
+          setLastUploadedToKBIds(data.uploadedIds);
+        }
+
+        addToast(
+          `Successfully added ${
+            data.successCount
+          } items to the knowledge base!${
+            data.failedCount > 0
+              ? ` ${data.failedCount} items failed to process.`
+              : ""
+          }`,
+          "success"
+        );
+      } else {
+        alert(`Failed to add items: ${data.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Expand to KB error:", error);
+      alert("Network error. Please check your connection and try again.");
+    } finally {
+      setIsExpandingToKB(false);
+    }
+  }, [isAdmin, editedGroups, checkedFields, setLastUploadedToKBIds, addToast]);
+
+  // Undo KB upload handler (admin only)
+  const handleUndoKBUpload = useCallback(async () => {
+    if (!isAdmin) {
+      alert("Admin access required");
+      return;
+    }
+
+    if (lastUploadedToKBIds.length === 0) {
+      alert("No recent knowledge base upload to undo");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the ${lastUploadedToKBIds.length} items that were just uploaded to the knowledge base? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsUndoingKBUpload(true);
+
+    try {
+      const response = await fetch("/api/delete-from-knowledgebase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ids: lastUploadedToKBIds,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        addToast(
+          `Successfully removed ${result.deletedCount} items from the knowledge base`,
+          "success"
+        );
+        setLastUploadedToKBIds([]);
+      } else {
+        alert(`Failed to undo: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Undo KB upload error:", error);
+      alert("Network error. Please check your connection and try again.");
+    } finally {
+      setIsUndoingKBUpload(false);
+    }
+  }, [isAdmin, lastUploadedToKBIds, setLastUploadedToKBIds, addToast]);
 
   // Handle checkbox change
   const handleCheckboxChange = useCallback(
@@ -1333,6 +1467,12 @@ const ArubaSpecialPage = () => {
             onToggleMergeMode={handleToggleMergeMode}
             onBatchMerge={handleMergeRows}
             selectedForMergeCount={selectedForMerge.filter(Boolean).length}
+            isAdmin={isAdmin}
+            onExpandToKB={handleExpandToKB}
+            isExpandingToKB={isExpandingToKB}
+            lastUploadedToKBIds={lastUploadedToKBIds}
+            onUndoKBUpload={handleUndoKBUpload}
+            isUndoingKBUpload={isUndoingKBUpload}
           />
 
           <TableFilters

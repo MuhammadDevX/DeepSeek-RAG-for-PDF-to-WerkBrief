@@ -151,6 +151,12 @@ interface ArubaSpecialContextType {
     fields: boolean[] | ((prev: boolean[]) => boolean[])
   ) => void;
 
+  // Knowledge base upload state
+  lastUploadedToKBIds: string[];
+  setLastUploadedToKBIds: (
+    ids: string[] | ((prev: string[]) => string[])
+  ) => void;
+
   // Auto-collapse tracking
   hasAutoCollapsed: React.MutableRefObject<boolean>;
 
@@ -250,6 +256,9 @@ export const ArubaSpecialProvider: React.FC<ArubaSpecialProviderProps> = ({
   const [editedGroups, setEditedGroups] = useState<ArubaSpecial["groups"]>([]);
   const [checkedFields, setCheckedFields] = useState<boolean[]>([]);
 
+  // Knowledge base upload state
+  const [lastUploadedToKBIds, setLastUploadedToKBIds] = useState<string[]>([]);
+
   // Initialize edited groups and checked fields when result changes
   React.useEffect(() => {
     if (result) {
@@ -293,6 +302,7 @@ export const ArubaSpecialProvider: React.FC<ArubaSpecialProviderProps> = ({
     setShowUndoNotification(false);
     setEditedGroups([]);
     setCheckedFields([]);
+    setLastUploadedToKBIds([]);
     hasAutoCollapsed.current = false;
   }, []);
 
@@ -359,6 +369,8 @@ export const ArubaSpecialProvider: React.FC<ArubaSpecialProviderProps> = ({
       setEditedGroups,
       checkedFields,
       setCheckedFields,
+      lastUploadedToKBIds,
+      setLastUploadedToKBIds,
       hasAutoCollapsed,
       resetAllState,
     }),
@@ -394,6 +406,7 @@ export const ArubaSpecialProvider: React.FC<ArubaSpecialProviderProps> = ({
       showUndoNotification,
       editedGroups,
       checkedFields,
+      lastUploadedToKBIds,
       resetAllState,
     ]
   );
