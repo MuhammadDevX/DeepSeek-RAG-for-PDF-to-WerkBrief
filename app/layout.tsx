@@ -16,8 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Werkbrief Generator",
-  description: "Werkbrief Generation by quickdeclare",
+  title: "Quick Declare - AI Powered Werkbrief Generator",
+  description:
+    "Werkbrief Generation by quickdeclare. We use AI Agents to create werkbriefs from your invoices. Fast, accurate, and efficient. The invoices do not require any special formatting. Just upload your PDF invoices and let our AI handle the rest.",
 };
 
 export default function RootLayout({

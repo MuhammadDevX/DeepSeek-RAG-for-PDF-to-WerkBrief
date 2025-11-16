@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   ListObjectsV2Command,
   GetObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { auth } from "@clerk/nextjs/server";
 
@@ -257,6 +258,89 @@ export async function PUT(req: NextRequest) {
     console.error("Error fetching specific werkbrief:", error);
     return NextResponse.json(
       { error: "Failed to fetch werkbrief" },
+      { status: 500 }
+    );
+  }
+}
+
+// Delete werkbrief history older than specified days
+export async function DELETE(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if user is admin (you can customize this check based on your auth setup)
+    // For now, allowing all authenticated users to clean their own history
+
+    const { searchParams } = new URL(req.url);
+    const daysParam = searchParams.get("days");
+    const days = daysParam ? parseInt(daysParam) : 7; // Default to 7 days
+
+    if (days < 1) {
+      return NextResponse.json(
+        { error: "Days parameter must be at least 1" },
+        { status: 400 }
+      );
+    }
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const prefix = `werkbrief-history/${userId}/`;
+
+    // List all objects for this user
+    const listCommand = new ListObjectsV2Command({
+      Bucket: process.env.DO_SPACES_BUCKET,
+      Prefix: prefix,
+    });
+
+    const listResponse = await s3Client.send(listCommand);
+
+    if (!listResponse.Contents || listResponse.Contents.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "No history items found",
+        deletedCount: 0,
+      });
+    }
+
+    // Filter items older than cutoff date
+    const itemsToDelete = listResponse.Contents.filter((item) => {
+      return item.LastModified && item.LastModified < cutoffDate;
+    });
+
+    if (itemsToDelete.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: `No history items older than ${days} days found`,
+        deletedCount: 0,
+      });
+    }
+
+    // Delete each item
+    const deletePromises = itemsToDelete.map((item) => {
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: process.env.DO_SPACES_BUCKET,
+        Key: item.Key!,
+      });
+      return s3Client.send(deleteCommand);
+    });
+
+    await Promise.all(deletePromises);
+
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${itemsToDelete.length} history items older than ${days} days`,
+      deletedCount: itemsToDelete.length,
+      cutoffDate: cutoffDate.toISOString(),
+    });
+  } catch (error) {
+    console.error("Error deleting old werkbrief history:", error);
+    return NextResponse.json(
+      { error: "Failed to delete old history items" },
       { status: 500 }
     );
   }

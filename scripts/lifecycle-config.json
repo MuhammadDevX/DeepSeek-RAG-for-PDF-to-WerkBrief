@@ -1,0 +1,12 @@
+{
+  "Rules": [
+    {
+      "ID": "delete-old-werkbrief-history",
+      "Status": "Enabled",
+      "Prefix": "werkbrief-history/",
+      "Expiration": {
+        "Days": 7
+      }
+    }
+  ]
+}

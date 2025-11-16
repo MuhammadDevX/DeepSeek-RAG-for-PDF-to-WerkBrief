@@ -17,6 +17,7 @@ import {
   FileStack,
   AlertTriangle,
   List,
+  Trash2,
 } from "lucide-react";
 
 interface HistoryItemMetadata {
@@ -54,6 +55,8 @@ export function WerkbriefHistoryPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [isDeletingOld, setIsDeletingOld] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -152,6 +155,47 @@ export function WerkbriefHistoryPanel({
     }).format(num);
   };
 
+  const deleteOldHistory = async () => {
+    setIsDeletingOld(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/werkbrief/history?days=7", {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh history after deletion
+        await fetchHistory();
+        setShowDeleteConfirm(false);
+
+        // Show success message
+        if (data.deletedCount > 0) {
+          alert(`Successfully deleted ${data.deletedCount} old werkbrief(s)`);
+        } else {
+          alert("No werkbriefs older than 7 days found");
+        }
+      } else {
+        setError(data.error || "Failed to delete old history");
+      }
+    } catch (error) {
+      console.error("Error deleting old history:", error);
+      setError("Network error. Please try again.");
+    } finally {
+      setIsDeletingOld(false);
+    }
+  };
+
+  const handleDeleteOldClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+  };
+
   const renderSkeletons = () => (
     <div className="space-y-3">
       {Array.from({ length: 5 }).map((_, index) => (
@@ -179,20 +223,78 @@ export function WerkbriefHistoryPanel({
     >
       <div className="space-y-4">
         {/* Header Actions */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-3">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Your previously generated werkbriefs
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchHistory}
-            disabled={isLoading}
-          >
-            <History className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDeleteOldClick}
+              disabled={isLoading || isDeletingOld}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Old
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchHistory}
+              disabled={isLoading || isDeletingOld}
+            >
+              <History className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-red-900 dark:text-red-100 mb-2">
+                  Delete Old Werkbriefs?
+                </h4>
+                <p className="text-sm text-red-800 dark:text-red-200 mb-4">
+                  This will permanently delete all werkbriefs older than 7 days.
+                  This action cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={deleteOldHistory}
+                    disabled={isDeletingOld}
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {isDeletingOld ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Yes, Delete
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={cancelDelete}
+                    disabled={isDeletingOld}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (

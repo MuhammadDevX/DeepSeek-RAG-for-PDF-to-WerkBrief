@@ -985,8 +985,6 @@ const WerkBriefHome = () => {
                     if (parsed.success) {
                       setResult(parsed.data);
                       setIsTableLoading(false);
-                      // Auto-save to history
-                      saveToHistory(parsed.data);
                     } else {
                       console.error("Schema validation failed:", parsed.error);
                       throw new Error(
@@ -1019,8 +1017,6 @@ const WerkBriefHome = () => {
                 if (parsed.success) {
                   setResult(parsed.data);
                   setIsTableLoading(false);
-                  // Auto-save to history
-                  saveToHistory(parsed.data);
                 }
               }
             }
@@ -1039,8 +1035,6 @@ const WerkBriefHome = () => {
         }
         setResult(parsed.data);
         setIsTableLoading(false);
-        // Auto-save to history
-        saveToHistory(parsed.data);
       }
     } catch (e) {
       console.error("Error in onGenerate:", e);
@@ -1111,15 +1105,30 @@ const WerkBriefHome = () => {
     }
   }, [editedFields, checkedFields, setCopied]);
 
-  const handleDownloadExcel = useCallback(() => {
+  const handleDownloadExcel = useCallback(async () => {
     if (!editedFields || editedFields.length === 0) return;
 
     try {
+      // Save to history before downloading
+      const werkbriefToSave: Werkbrief = {
+        fields: editedFields,
+        totalPages: result?.totalPages || 0,
+        missingPages: result?.missingPages || [],
+      };
+      await saveToHistory(werkbriefToSave);
+
+      // Then download
       downloadExcelFile(editedFields, checkedFields);
+
+      addToast(
+        "Werkbrief saved to history and downloaded successfully",
+        "success"
+      );
     } catch (error) {
       console.error("Failed to download Excel file:", error);
+      addToast("Download completed but failed to save to history", "warning");
     }
-  }, [editedFields, checkedFields]);
+  }, [editedFields, checkedFields, result, saveToHistory, addToast]);
 
   return (
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-full mx-auto p-4 relative">
