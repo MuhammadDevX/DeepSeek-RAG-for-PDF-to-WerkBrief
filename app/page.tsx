@@ -181,7 +181,7 @@ export const Navbar = () => {
               <>
                 <Link href={"/aruba-special"}>
                   <Button size="sm" className="text-xs sm:text-sm">
-                    Ship2Aruba Special
+                    Skypostal
                   </Button>
                 </Link>
                 <Link href={"/admin"}>

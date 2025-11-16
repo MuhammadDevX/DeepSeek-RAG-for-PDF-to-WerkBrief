@@ -375,10 +375,10 @@ const ArubaTableRow = memo(
           <td className="px-2 py-3 text-center border-r border-gray-200 dark:border-gray-700">
             <DebouncedInput
               type="number"
-              step="0.1"
+              step="0.01"
               value={Number(field.BRUTO)}
               onChange={handleBRUTOChange}
-              precision={1}
+              precision={2}
               className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-green-50 dark:bg-green-900/20 px-2 py-2 rounded-lg border border-green-200 dark:border-green-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-colors duration-150"
             />
           </td>

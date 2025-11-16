@@ -225,7 +225,7 @@ const ArubaSpecialPage = () => {
           }, 0)
         );
       }, 0);
-      setTotalBruto(Number(total.toFixed(1)));
+      setTotalBruto(Number(total.toFixed(2)));
     } else {
       setTotalBruto(0);
     }
@@ -269,9 +269,9 @@ const ArubaSpecialPage = () => {
             ? field.FOB
             : parseFloat(String(field.FOB)) || 1;
         const newBruto = (newTotalBruto * fob) / totalFOB;
-        // Apply minimum weight constraint: ensure weight is at least 0.1 kg
-        const constrainedBruto = Math.max(newBruto, 0.1);
-        return Number(constrainedBruto.toFixed(1));
+        // Apply minimum weight constraint: ensure weight is at least 0.01 kg
+        const constrainedBruto = Math.max(newBruto, 0.01);
+        return Number(constrainedBruto.toFixed(2));
       });
 
       // Handle excess due to minimum constraints
@@ -281,12 +281,12 @@ const ArubaSpecialPage = () => {
       );
 
       if (currentSum > newTotalBruto) {
-        const excess = Number((currentSum - newTotalBruto).toFixed(1));
+        const excess = Number((currentSum - newTotalBruto).toFixed(2));
 
         // Find items that can be reduced
         const adjustableIndices = redistributedValues
           .map((value, index) => ({ value, index }))
-          .filter((item) => item.value > 0.1)
+          .filter((item) => item.value > 0.01)
           .sort((a, b) => b.value - a.value);
 
         // Distribute the excess reduction
@@ -296,15 +296,15 @@ const ArubaSpecialPage = () => {
 
           const maxReduction = Math.min(
             remainingExcess,
-            Number((item.value - 0.1).toFixed(1))
+            Number((item.value - 0.01).toFixed(2))
           );
 
           if (maxReduction > 0) {
             redistributedValues[item.index] = Number(
-              (redistributedValues[item.index] - maxReduction).toFixed(1)
+              (redistributedValues[item.index] - maxReduction).toFixed(2)
             );
             remainingExcess = Number(
-              (remainingExcess - maxReduction).toFixed(1)
+              (remainingExcess - maxReduction).toFixed(2)
             );
           }
         }
@@ -312,23 +312,23 @@ const ArubaSpecialPage = () => {
 
       // Handle any remaining rounding difference
       currentSum = redistributedValues.reduce((sum, value) => sum + value, 0);
-      const difference = Number((newTotalBruto - currentSum).toFixed(1));
+      const difference = Number((newTotalBruto - currentSum).toFixed(2));
 
       if (difference !== 0 && redistributedValues.length > 0) {
         let adjustmentIndex = 0;
         if (difference < 0) {
           adjustmentIndex = redistributedValues.findIndex(
-            (value) => value + difference >= 0.1
+            (value) => value + difference >= 0.01
           );
           if (adjustmentIndex === -1) adjustmentIndex = 0;
         }
 
         redistributedValues[adjustmentIndex] = Number(
-          (redistributedValues[adjustmentIndex] + difference).toFixed(1)
+          (redistributedValues[adjustmentIndex] + difference).toFixed(2)
         );
 
-        if (redistributedValues[adjustmentIndex] < 0.1) {
-          redistributedValues[adjustmentIndex] = 0.1;
+        if (redistributedValues[adjustmentIndex] < 0.01) {
+          redistributedValues[adjustmentIndex] = 0.01;
         }
       }
 
@@ -355,7 +355,7 @@ const ArubaSpecialPage = () => {
     (value: string | number) => {
       const newTotal =
         typeof value === "number" ? value : parseFloat(String(value)) || 0;
-      const roundedTotal = Number(newTotal.toFixed(1));
+      const roundedTotal = Number(newTotal.toFixed(2));
       setTotalBruto(roundedTotal);
       redistributeBrutoValues(roundedTotal);
     },
