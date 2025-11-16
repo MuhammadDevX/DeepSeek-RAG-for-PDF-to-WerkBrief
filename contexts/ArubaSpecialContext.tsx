@@ -306,6 +306,18 @@ export const ArubaSpecialProvider: React.FC<ArubaSpecialProviderProps> = ({
     hasAutoCollapsed.current = false;
   }, []);
 
+  // Listen for global reset event from ResetDataButton
+  React.useEffect(() => {
+    const handleResetEvent = () => {
+      resetAllState();
+    };
+
+    window.addEventListener("resetArubaSpecial", handleResetEvent);
+    return () => {
+      window.removeEventListener("resetArubaSpecial", handleResetEvent);
+    };
+  }, [resetAllState]);
+
   const value = useMemo(
     () => ({
       pdfFiles,
