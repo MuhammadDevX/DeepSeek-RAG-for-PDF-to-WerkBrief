@@ -220,28 +220,60 @@ export function downloadExcelFile(
 
   // Add sum row with blue highlight
   const sumRowIndex = exportData.length + 1; // +1 for header row
+  const firstDataRow = 2; // Row 1 is headers, data starts at row 2
+  const lastDataRow = exportData.length + 1;
 
-  // Manually add sum row cells with proper styling
+  // Define sum row cells with formulas
   const sumRowData = [
-    { col: 0, val: "" },
-    { col: 1, val: "" },
-    { col: 2, val: "" },
-    { col: 3, val: totalCTNS },
-    { col: 4, val: totalSTKS },
-    { col: 5, val: parseFloat(totalBRUTO.toFixed(1)) },
-    { col: 6, val: parseFloat(totalFOB.toFixed(2)) },
+    { col: 0, val: "", formula: null },
+    { col: 1, val: "", formula: null },
+    { col: 2, val: "", formula: null },
+    {
+      col: 3,
+      val: totalCTNS,
+      formula: `SUM(D${firstDataRow}:D${lastDataRow})`,
+    },
+    {
+      col: 4,
+      val: totalSTKS,
+      formula: `SUM(E${firstDataRow}:E${lastDataRow})`,
+    },
+    {
+      col: 5,
+      val: parseFloat(totalBRUTO.toFixed(1)),
+      formula: `SUM(F${firstDataRow}:F${lastDataRow})`,
+    },
+    {
+      col: 6,
+      val: parseFloat(totalFOB.toFixed(2)),
+      formula: `SUM(G${firstDataRow}:G${lastDataRow})`,
+    },
   ];
 
-  for (const { col, val } of sumRowData) {
+  for (const { col, val, formula } of sumRowData) {
     const cellAddress = XLSX.utils.encode_cell({ r: sumRowIndex, c: col });
-    ws[cellAddress] = {
-      t: typeof val === "number" ? "n" : "s",
-      v: val,
-      s: {
-        fill: { fgColor: { rgb: "4472C4" } }, // Blue color
-        font: { color: { rgb: "FFFFFF" }, bold: true },
-      },
-    };
+
+    if (formula) {
+      // Use formula for numeric columns
+      ws[cellAddress] = {
+        t: "n",
+        f: formula,
+        s: {
+          fill: { fgColor: { rgb: "4472C4" } }, // Blue color
+          font: { color: { rgb: "FFFFFF" }, bold: true },
+        },
+      };
+    } else {
+      // Use plain value for empty cells
+      ws[cellAddress] = {
+        t: typeof val === "number" ? "n" : "s",
+        v: val,
+        s: {
+          fill: { fgColor: { rgb: "4472C4" } }, // Blue color
+          font: { color: { rgb: "FFFFFF" }, bold: true },
+        },
+      };
+    }
   }
 
   // Update range to include sum row
@@ -382,7 +414,7 @@ export function downloadArubaExcelFile(
 
       // Add tracking number header if provided
       if (trackingNumber) {
-        const headerText = `AWB - ${trackingNumber} - ${currentSplit}`;
+        const headerText = `AWB - ${trackingNumber}-${currentSplit}`;
         XLSX.utils.sheet_add_aoa(ws, [[headerText]], { origin: "H1" });
 
         // Make the tracking header bold
@@ -406,28 +438,60 @@ export function downloadArubaExcelFile(
 
       // Add sum row with blue highlight
       const sumRowIndex = exportData.length + 1; // +1 for header row
+      const firstDataRow = 2; // Row 1 is headers, data starts at row 2
+      const lastDataRow = exportData.length + 1;
 
-      // Manually add sum row cells with proper styling
+      // Define sum row cells with formulas
       const sumRowData = [
-        { col: 0, val: "" },
-        { col: 1, val: "" },
-        { col: 2, val: "" },
-        { col: 3, val: totalCTNS },
-        { col: 4, val: totalSTKS },
-        { col: 5, val: parseFloat(totalBRUTO.toFixed(2)) },
-        { col: 6, val: parseFloat(totalFOB.toFixed(2)) },
+        { col: 0, val: "", formula: null },
+        { col: 1, val: "", formula: null },
+        { col: 2, val: "", formula: null },
+        {
+          col: 3,
+          val: totalCTNS,
+          formula: `SUM(D${firstDataRow}:D${lastDataRow})`,
+        },
+        {
+          col: 4,
+          val: totalSTKS,
+          formula: `SUM(E${firstDataRow}:E${lastDataRow})`,
+        },
+        {
+          col: 5,
+          val: parseFloat(totalBRUTO.toFixed(2)),
+          formula: `SUM(F${firstDataRow}:F${lastDataRow})`,
+        },
+        {
+          col: 6,
+          val: parseFloat(totalFOB.toFixed(2)),
+          formula: `SUM(G${firstDataRow}:G${lastDataRow})`,
+        },
       ];
 
-      for (const { col, val } of sumRowData) {
+      for (const { col, val, formula } of sumRowData) {
         const cellAddress = XLSX.utils.encode_cell({ r: sumRowIndex, c: col });
-        ws[cellAddress] = {
-          t: typeof val === "number" ? "n" : "s",
-          v: val,
-          s: {
-            fill: { fgColor: { rgb: "4472C4" } }, // Blue color
-            font: { color: { rgb: "FFFFFF" }, bold: true },
-          },
-        };
+
+        if (formula) {
+          // Use formula for numeric columns
+          ws[cellAddress] = {
+            t: "n",
+            f: formula,
+            s: {
+              fill: { fgColor: { rgb: "4472C4" } }, // Blue color
+              font: { color: { rgb: "FFFFFF" }, bold: true },
+            },
+          };
+        } else {
+          // Use plain value for empty cells
+          ws[cellAddress] = {
+            t: typeof val === "number" ? "n" : "s",
+            v: val,
+            s: {
+              fill: { fgColor: { rgb: "4472C4" } }, // Blue color
+              font: { color: { rgb: "FFFFFF" }, bold: true },
+            },
+          };
+        }
       }
 
       // Update range to include sum row
