@@ -172,24 +172,27 @@ export const Navbar = () => {
                 Werkbrief creator
               </Button>
             </Link>
-            <Link href={"/expand"}>
-              <Button size="sm" className="text-xs sm:text-sm">
-                Expand KB
-              </Button>
-            </Link>
             {user.publicMetadata.role === "admin" && (
-              <>
-                <Link href={"/aruba-special"}>
-                  <Button size="sm" className="text-xs sm:text-sm">
-                    Skypostal
-                  </Button>
-                </Link>
-                <Link href={"/admin"}>
-                  <Button size="sm" className="text-xs sm:text-sm">
-                    Admin
-                  </Button>
-                </Link>
-              </>
+              <Link href={"/expand"}>
+                <Button size="sm" className="text-xs sm:text-sm">
+                  Expand KB
+                </Button>
+              </Link>
+            )}
+            {(user.publicMetadata.role === "admin" ||
+              user.publicMetadata.role === "operator") && (
+              <Link href={"/aruba-special"}>
+                <Button size="sm" className="text-xs sm:text-sm">
+                  Skypostal
+                </Button>
+              </Link>
+            )}
+            {user.publicMetadata.role === "admin" && (
+              <Link href={"/admin"}>
+                <Button size="sm" className="text-xs sm:text-sm">
+                  Admin
+                </Button>
+              </Link>
             )}
             <ResetDataButton />
             <UserButton />

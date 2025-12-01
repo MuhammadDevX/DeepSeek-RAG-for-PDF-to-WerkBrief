@@ -19,11 +19,12 @@ interface WerkbriefItem {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is admin
+    // Check if user is admin or operator
     const { sessionClaims } = await auth();
-    if (sessionClaims?.metadata?.role !== "admin") {
+    const userRole = sessionClaims?.metadata?.role;
+    if (userRole !== "admin" && userRole !== "operator") {
       return NextResponse.json(
-        { error: "Unauthorized. Admin access required." },
+        { error: "Unauthorized. Admin or Operator access required." },
         { status: 403 }
       );
     }

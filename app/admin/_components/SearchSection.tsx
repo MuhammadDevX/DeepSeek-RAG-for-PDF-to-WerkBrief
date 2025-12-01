@@ -26,6 +26,7 @@ interface User {
   publicMetadata: {
     role?: string;
   };
+  banned: boolean;
 }
 
 interface SearchResponse {

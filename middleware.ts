@@ -2,7 +2,8 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
-const isAdminRoute = createRouteMatcher(["/admin(.*)", "/aruba-special(.*)"]);
+const isAdminOnlyRoute = createRouteMatcher(["/admin(.*)"]);
+const isOperatorRoute = createRouteMatcher(["/aruba-special(.*)"]);
 const isExpandRoute = createRouteMatcher(["/expand(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -12,12 +13,20 @@ export default clerkMiddleware(async (auth, req) => {
     const { sessionClaims } = await auth();
     const role = sessionClaims?.metadata?.role as string | undefined;
 
-    if (isAdminRoute(req) && role !== "admin") {
+    // Admin-only routes (admin panel)
+    if (isAdminOnlyRoute(req) && role !== "admin") {
       const url = new URL("/", req.url);
       return NextResponse.redirect(url);
     }
 
-    if (isExpandRoute(req) && role !== "admin" && role !== "moderator") {
+    // Operator routes (aruba-special/skyportal) - accessible by operator and admin
+    if (isOperatorRoute(req) && role !== "admin" && role !== "operator") {
+      const url = new URL("/", req.url);
+      return NextResponse.redirect(url);
+    }
+
+    // Expand routes - accessible by admin only
+    if (isExpandRoute(req) && role !== "admin") {
       const url = new URL("/", req.url);
       return NextResponse.redirect(url);
     }

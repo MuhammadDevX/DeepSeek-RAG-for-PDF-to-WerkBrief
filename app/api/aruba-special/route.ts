@@ -33,16 +33,18 @@ export async function POST(req: NextRequest) {
   try {
     console.log("🚀 API: aruba-special POST request received");
 
-    // Check if user is admin
+    // Check if user is admin or operator
     const { sessionClaims } = await auth();
     const role = sessionClaims?.metadata?.role as string | undefined;
 
     console.log(`👤 User role: ${role || "none"}`);
 
-    if (role !== "admin") {
-      console.warn("⚠️ Unauthorized access attempt - not admin");
+    if (role !== "admin" && role !== "operator") {
+      console.warn("⚠️ Unauthorized access attempt - not admin or operator");
       return new Response(
-        JSON.stringify({ error: "Unauthorized. Admin access required." }),
+        JSON.stringify({
+          error: "Unauthorized. Admin or Operator access required.",
+        }),
         { status: 403 }
       );
     }

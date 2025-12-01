@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
       })),
       primaryEmailAddressId: user.primaryEmailAddressId,
       publicMetadata: user.publicMetadata,
+      banned: user.banned,
     }));
 
     // Calculate if there are more results

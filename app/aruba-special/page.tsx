@@ -28,7 +28,7 @@ type ArubaSpecial = z.infer<typeof ArubaSpecialSchema>;
 type ArubaField = ArubaSpecial["groups"][0]["fields"][0];
 
 const ArubaSpecialPage = () => {
-  // Check if user is admin
+  // Check if user is admin for KB expansion features
   const { user } = useUser();
   const isAdmin = user?.publicMetadata?.role === "admin";
 
