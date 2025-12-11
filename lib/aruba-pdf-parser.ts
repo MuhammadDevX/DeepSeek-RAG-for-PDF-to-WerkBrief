@@ -85,10 +85,11 @@ export function extractProductsFromArubaText(
       continue;
     }
 
-    // Check if line starts with ASIN pattern (B followed by 9 alphanumeric characters)
-    // ASIN must be followed by a digit (like "120 Pcs") or letter (description start)
-    // NOT a dot (which would indicate it's a product category like BEAUTY6217.10.1090)
-    const asinMatch = line.match(/^(B[A-Z0-9]{9})([^.].*)$/);
+    // Check if line starts with ASIN or ISBN-10 pattern
+    // ASIN: B followed by 9 alphanumeric characters (e.g., B00YJJG39A)
+    // ISBN-10: 10 alphanumeric characters, often starting with digit (e.g., 1935660500, 0553593560, 141978269X)
+    // Must be followed by a letter (description start), NOT a dot (which indicates product category like BEAUTY6217.10.1090)
+    const asinMatch = line.match(/^([B0-9][A-Z0-9]{9})([^.].*)$/);
 
     if (asinMatch) {
       // Save previous product if exists
@@ -173,9 +174,11 @@ export function extractProductsFromArubaText(
       }
 
       // More robust pattern: Match PRODUCT_GROUP (letters with optional spaces), then numbers
-      // Pattern: [LETTERS/SPACES][DIGITS/DOTS][ALPHANUMERIC][2-LETTER-COUNTRY][NUMBERS]
+      // Pattern handles BOTH formats:
+      // 1. Concatenated: DRUGSTORE3304.99.5000EAR99US40.362.7410.96
+      // 2. Space-separated: BOOK 4901.99.0050 EAR99 US 1 1.45 54.95 54.95
       const dataMatch = lineToCheck.match(
-        /^[A-Z\s]{2,20}[\d.]+[A-Z0-9]+[A-Z]{2}[\d.]+$/
+        /^[A-Z\s]{2,25}\s*[\d.]+[A-Z0-9]+[A-Z]{2}[\d.]+$/
       );
 
       if (dataMatch) {
@@ -187,62 +190,68 @@ export function extractProductsFromArubaText(
           console.log(`   ⏭️ Skipped ${linesSkipped} combined lines`);
         }
 
-        // Extract everything after the country code (last 2 capital letters before numbers)
-        const countryCodeMatch = lineToCheck.match(/([A-Z]{2})([\d.]+)$/);
+        // Try space-separated format first (e.g., BOOK 4901.99.0050 EAR99 US 1 1.45 54.95 54.95)
+        const parts = lineToCheck.split(/\s+/);
+        let countryCodeIndex = -1;
 
-        if (countryCodeMatch) {
-          const numbersAfterCountry = countryCodeMatch[2];
+        // Find the country code (2 uppercase letters that's a separate token)
+        for (let j = parts.length - 1; j >= 0; j--) {
+          if (/^[A-Z]{2}$/.test(parts[j])) {
+            countryCodeIndex = j;
+            break;
+          }
+        }
+
+        if (countryCodeIndex !== -1 && parts.length >= countryCodeIndex + 5) {
+          // Space-separated format found
+          const quantity = parseFloat(parts[countryCodeIndex + 1]);
+          const totalNetWeight = parseFloat(parts[countryCodeIndex + 2]);
+          const unitValue = parseFloat(parts[countryCodeIndex + 3]);
+          const totalUnitValue = parseFloat(parts[countryCodeIndex + 4]);
+
           console.log(
-            `   🔢 Numbers after country code: ${numbersAfterCountry}`
+            `   📐 Parsed values (space-separated): qty=${quantity}, weight=${totalNetWeight}, unit=${unitValue}, total=${totalUnitValue}`
           );
 
-          // Parse the concatenated numbers: QUANTITY + NET_WEIGHT + UNIT_VALUE + TOTAL_VALUE
-          // Example: 20.8413.4926.98 should be: 2, 0.84, 13.49, 26.98
-          // Example: 10.4011.9911.99 should be: 1, 0.40, 11.99, 11.99
-          // Strategy: Use regex to extract 4 decimal values with specific patterns
-          // Pattern: quantity (1-2 digits) + weight (0.XX or X.XX) + unit price (XX.XX) + total (XX.XX or XXX.XX)
+          currentProduct.quantity = quantity;
+          currentProduct.totalNetWeight = totalNetWeight;
+          currentProduct.unitValue = unitValue;
+          currentProduct.totalUnitValue = totalUnitValue;
 
-          // Try to match: (1-2 digits)(decimal with 2 places)(decimal with 2 places)(decimal with 2 places)
-          // This handles: 2 0.84 13.49 26.98 or 1 0.40 11.99 11.99
-          const preciseMatch = numbersAfterCountry.match(
-            /^(\d{1,2})(\d\.\d{2})(\d+\.\d{2})(\d+\.\d{2})$/
-          );
+          console.log(`   💰 Successfully extracted all values!`);
+        } else {
+          // Try concatenated format (e.g., DRUGSTORE3304.99.5000EAR99US40.362.7410.96)
+          console.log(`   🔍 Trying concatenated format...`);
 
-          if (preciseMatch) {
-            const quantity = parseFloat(preciseMatch[1]);
-            const totalNetWeight = parseFloat(preciseMatch[2]);
-            const unitValue = parseFloat(preciseMatch[3]);
-            const totalUnitValue = parseFloat(preciseMatch[4]);
+          // Extract everything after the country code (last 2 capital letters before numbers)
+          const countryCodeMatch = lineToCheck.match(/([A-Z]{2})([\d.]+)$/);
 
+          if (countryCodeMatch) {
+            const numbersAfterCountry = countryCodeMatch[2];
             console.log(
-              `   📐 Parsed values: qty=${quantity}, weight=${totalNetWeight}, unit=${unitValue}, total=${totalUnitValue}`
+              `   🔢 Numbers after country code: ${numbersAfterCountry}`
             );
 
-            currentProduct.quantity = quantity;
-            currentProduct.totalNetWeight = totalNetWeight;
-            currentProduct.unitValue = unitValue;
-            currentProduct.totalUnitValue = totalUnitValue;
+            // Parse concatenated numbers: QUANTITY + NET_WEIGHT + UNIT_VALUE + TOTAL_VALUE
+            // Examples:
+            // 40.362.7410.96 -> 4, 0.36, 2.74, 10.96
+            // 11.4554.9554.95 -> 1, 1.45, 54.95, 54.95
+            // 20.2620.9941.98 -> 2, 0.26, 20.99, 41.98
 
-            console.log(`   💰 Successfully extracted all values!`);
-          } else {
-            console.warn(
-              `   ⚠️ Could not parse number pattern from: ${numbersAfterCountry}`
+            // Strategy: Split by finding price patterns (X.XX)
+            // Quantity is 1-2 digits at start, then 3 price values with 2 decimals
+            const preciseMatch = numbersAfterCountry.match(
+              /^(\d{1,2})(\d\.\d{2})(\d+\.\d{2})(\d+\.\d{2})$/
             );
-            console.log(`   🔍 Trying alternative parsing method...`);
 
-            // Fallback: Try to split by looking for price patterns (X.XX)
-            // Find all X.XX patterns and assume quantity is before the first one
-            const priceMatches = numbersAfterCountry.match(/\d+\.\d{2}/g);
-            const quantityMatch = numbersAfterCountry.match(/^(\d+)/);
-
-            if (priceMatches && priceMatches.length >= 3 && quantityMatch) {
-              const quantity = parseFloat(quantityMatch[1]);
-              const totalNetWeight = parseFloat(priceMatches[0]);
-              const unitValue = parseFloat(priceMatches[1]);
-              const totalUnitValue = parseFloat(priceMatches[2]);
+            if (preciseMatch) {
+              const quantity = parseFloat(preciseMatch[1]);
+              const totalNetWeight = parseFloat(preciseMatch[2]);
+              const unitValue = parseFloat(preciseMatch[3]);
+              const totalUnitValue = parseFloat(preciseMatch[4]);
 
               console.log(
-                `   📐 Fallback parsed: qty=${quantity}, weight=${totalNetWeight}, unit=${unitValue}, total=${totalUnitValue}`
+                `   📐 Parsed values (concatenated): qty=${quantity}, weight=${totalNetWeight}, unit=${unitValue}, total=${totalUnitValue}`
               );
 
               currentProduct.quantity = quantity;
@@ -250,19 +259,17 @@ export function extractProductsFromArubaText(
               currentProduct.unitValue = unitValue;
               currentProduct.totalUnitValue = totalUnitValue;
 
-              console.log(`   💰 Successfully extracted with fallback method!`);
+              console.log(`   💰 Successfully extracted all values!`);
             } else {
               console.warn(
-                `   ⚠️ Fallback also failed. Found ${
-                  priceMatches?.length || 0
-                } price patterns`
+                `   ⚠️ Could not parse concatenated numbers: ${numbersAfterCountry}`
               );
             }
+          } else {
+            console.warn(
+              `   ⚠️ Could not find country code in: ${lineToCheck}`
+            );
           }
-        } else {
-          console.warn(
-            `   ⚠️ Could not find country code pattern in: ${lineToCheck}`
-          );
         }
       } else {
         // Part of description (only add if not a split category line)
