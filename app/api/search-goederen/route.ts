@@ -3,12 +3,18 @@ import { Pinecone } from "@pinecone-database/pinecone";
 import { getEnvOrThrow } from "@/lib/utils";
 import { embed } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import { auth } from "@clerk/nextjs/server";
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? "" });
 
 // Simple in-memory cache with TTL
 const searchCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Export cache clearing function
+export function clearSearchCache() {
+  searchCache.clear();
+}
 
 function getCacheKey(query: string, topK: number): string {
   return `${query.toLowerCase().trim()}_${topK}`;
@@ -132,6 +138,34 @@ export async function POST(request: NextRequest) {
     console.error("Search error:", error);
     return NextResponse.json(
       { error: "Internal server error during search" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE endpoint to clear cache (admin only)
+export async function DELETE() {
+  try {
+    // Check if user is admin or operator
+    const { sessionClaims } = await auth();
+    const userRole = sessionClaims?.metadata?.role;
+    if (userRole !== "admin" && userRole !== "operator") {
+      return NextResponse.json(
+        { error: "Unauthorized. Admin or Operator access required." },
+        { status: 403 }
+      );
+    }
+
+    clearSearchCache();
+
+    return NextResponse.json({
+      success: true,
+      message: "Search cache cleared successfully",
+    });
+  } catch (error) {
+    console.error("Cache clear error:", error);
+    return NextResponse.json(
+      { error: "Internal server error while clearing cache" },
       { status: 500 }
     );
   }
