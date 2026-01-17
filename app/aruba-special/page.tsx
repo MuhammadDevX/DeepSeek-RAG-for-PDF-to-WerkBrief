@@ -111,8 +111,8 @@ const ArubaSpecialPage = () => {
           ...group,
           fields: group.fields.filter((field) =>
             Object.values(field).some((value) =>
-              String(value).toLowerCase().includes(lowerSearch)
-            )
+              String(value).toLowerCase().includes(lowerSearch),
+            ),
           ),
         }))
         .filter((group) => group.fields.length > 0);
@@ -147,20 +147,20 @@ const ArubaSpecialPage = () => {
   const totalFilteredItems = useMemo(() => {
     return filteredAndSortedGroups.reduce(
       (sum, group) => sum + group.fields.length,
-      0
+      0,
     );
   }, [filteredAndSortedGroups]);
 
   const selectedCount = useMemo(
     () => checkedFields.filter(Boolean).length,
-    [checkedFields]
+    [checkedFields],
   );
 
   const hasTableData = useMemo(
     () =>
       (result && result.groups && result.groups.length > 0) ||
       editedGroups.length > 0,
-    [result, editedGroups.length]
+    [result, editedGroups.length],
   );
 
   // Filters visibility state
@@ -178,7 +178,7 @@ const ArubaSpecialPage = () => {
   const tableContainerClasses = useMemo(
     () =>
       `w-full transition-all duration-300 max-w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden`,
-    []
+    [],
   );
 
   const [toasts, setToasts] = useState<
@@ -195,12 +195,12 @@ const ArubaSpecialPage = () => {
   const addToast = useCallback(
     (
       message: string,
-      type: "success" | "info" | "warning" | "error" = "info"
+      type: "success" | "info" | "warning" | "error" = "info",
     ) => {
       const id = `toast-${Date.now()}-${Math.random()}`;
       setToasts((prev) => [...prev, { id, message, type }]);
     },
-    []
+    [],
   );
 
   const removeToast = useCallback((id: string) => {
@@ -277,7 +277,7 @@ const ArubaSpecialPage = () => {
       // Handle excess due to minimum constraints
       let currentSum = redistributedValues.reduce(
         (sum, value) => sum + value,
-        0
+        0,
       );
 
       if (currentSum > newTotalBruto) {
@@ -296,15 +296,15 @@ const ArubaSpecialPage = () => {
 
           const maxReduction = Math.min(
             remainingExcess,
-            Number((item.value - 0.01).toFixed(2))
+            Number((item.value - 0.01).toFixed(2)),
           );
 
           if (maxReduction > 0) {
             redistributedValues[item.index] = Number(
-              (redistributedValues[item.index] - maxReduction).toFixed(2)
+              (redistributedValues[item.index] - maxReduction).toFixed(2),
             );
             remainingExcess = Number(
-              (remainingExcess - maxReduction).toFixed(2)
+              (remainingExcess - maxReduction).toFixed(2),
             );
           }
         }
@@ -318,13 +318,13 @@ const ArubaSpecialPage = () => {
         let adjustmentIndex = 0;
         if (difference < 0) {
           adjustmentIndex = redistributedValues.findIndex(
-            (value) => value + difference >= 0.01
+            (value) => value + difference >= 0.01,
           );
           if (adjustmentIndex === -1) adjustmentIndex = 0;
         }
 
         redistributedValues[adjustmentIndex] = Number(
-          (redistributedValues[adjustmentIndex] + difference).toFixed(2)
+          (redistributedValues[adjustmentIndex] + difference).toFixed(2),
         );
 
         if (redistributedValues[adjustmentIndex] < 0.01) {
@@ -347,7 +347,7 @@ const ArubaSpecialPage = () => {
         return newGroups;
       });
     },
-    [editedGroups, setEditedGroups]
+    [editedGroups, setEditedGroups],
   );
 
   // Handle total bruto change (same as werkbrief)
@@ -359,7 +359,7 @@ const ArubaSpecialPage = () => {
       setTotalBruto(roundedTotal);
       redistributeBrutoValues(roundedTotal);
     },
-    [redistributeBrutoValues]
+    [redistributeBrutoValues],
   );
 
   // Handle file selection (not upload yet)
@@ -367,7 +367,7 @@ const ArubaSpecialPage = () => {
     (files: File[]) => {
       setPdfFiles(files);
     },
-    [setPdfFiles]
+    [setPdfFiles],
   );
 
   // Handle generate button click
@@ -394,14 +394,14 @@ const ArubaSpecialPage = () => {
       for (let i = 0; i < pdfFiles.length; i++) {
         const file = pdfFiles[i];
         console.log(
-          `⬆️ Uploading file ${i + 1}/${pdfFiles.length}: ${file.name}`
+          `⬆️ Uploading file ${i + 1}/${pdfFiles.length}: ${file.name}`,
         );
 
         const uploadResult = await uploadFileToSpacesWithProgress(
           file,
           (progress) => {
             setUploadProgress(progress);
-          }
+          },
         );
 
         if (uploadResult.success && uploadResult.fileKey) {
@@ -410,7 +410,7 @@ const ArubaSpecialPage = () => {
             fileName: file.name,
           });
           console.log(
-            `✅ Upload successful: ${file.name} -> ${uploadResult.fileKey}`
+            `✅ Upload successful: ${file.name} -> ${uploadResult.fileKey}`,
           );
         } else {
           const errorMsg = uploadResult.error || "Upload failed";
@@ -441,7 +441,7 @@ const ArubaSpecialPage = () => {
       });
 
       console.log(
-        `📡 API Response status: ${response.status} ${response.statusText}`
+        `📡 API Response status: ${response.status} ${response.statusText}`,
       );
 
       if (!response.ok) {
@@ -466,64 +466,85 @@ const ArubaSpecialPage = () => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let messageCount = 0;
+      let buffer = ""; // Buffer to accumulate incomplete messages
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
           console.log("✅ Stream processing complete");
+          // Process any remaining data in buffer
+          if (buffer.trim()) {
+            console.log("📋 Processing remaining buffer data...");
+          }
           break;
         }
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+        // Append decoded chunk to buffer
+        buffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              messageCount++;
+        // Process complete messages (separated by double newlines in SSE)
+        const messages = buffer.split("\n\n");
 
-              console.log(`📨 Stream message #${messageCount}:`, {
-                type: data.type,
-                step: data.currentStep,
-                pdf: data.currentPDF,
-                progress: data.processedPDFs
-                  ? `${data.processedPDFs}/${data.totalPDFs}`
-                  : undefined,
-              });
+        // Keep the last potentially incomplete message in the buffer
+        buffer = messages.pop() || "";
 
-              if (data.type === "progress") {
-                setProgress(data);
-              } else if (data.type === "complete" && data.data) {
-                console.log("✅ Processing complete! Data received:", {
-                  groups: data.data.groups?.length,
-                  totalFields: data.data.groups?.reduce(
-                    (sum: number, g: { fields: unknown[] }) =>
-                      sum + g.fields.length,
-                    0
-                  ),
+        for (const message of messages) {
+          const lines = message.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const jsonStr = line.slice(6);
+                const data = JSON.parse(jsonStr);
+                messageCount++;
+
+                console.log(`📨 Stream message #${messageCount}:`, {
+                  type: data.type,
+                  step: data.currentStep,
+                  pdf: data.currentPDF,
+                  progress: data.processedPDFs
+                    ? `${data.processedPDFs}/${data.totalPDFs}`
+                    : undefined,
                 });
-                setResult(data.data);
-                setEditedGroups(data.data.groups);
-                setCheckedFields(
-                  new Array(
-                    data.data.groups.reduce(
-                      (sum: number, group: { fields: unknown[] }) =>
-                        sum + group.fields.length,
-                      0
-                    )
-                  ).fill(false)
+
+                if (data.type === "progress") {
+                  setProgress(data);
+                } else if (data.type === "complete" && data.data) {
+                  console.log("✅ Processing complete! Data received:", {
+                    groups: data.data.groups?.length,
+                    totalFields: data.data.groups?.reduce(
+                      (sum: number, g: { fields: unknown[] }) =>
+                        sum + g.fields.length,
+                      0,
+                    ),
+                  });
+                  setResult(data.data);
+                  setEditedGroups(data.data.groups);
+                  setCheckedFields(
+                    new Array(
+                      data.data.groups.reduce(
+                        (sum: number, group: { fields: unknown[] }) =>
+                          sum + group.fields.length,
+                        0,
+                      ),
+                    ).fill(false),
+                  );
+                  setProgress(data);
+                  addToast("PDFs processed successfully!", "success");
+                } else if (data.type === "error") {
+                  console.error("❌ Processing error from API:", data.error);
+                  setError(data.error || "An error occurred");
+                  addToast(data.error || "An error occurred", "error");
+                }
+              } catch (parseError) {
+                console.error("❌ Failed to parse stream message:", parseError);
+                console.error("Raw line length:", line.length);
+                // Don't log the full line as it might be very large
+                console.error(
+                  "Raw line preview:",
+                  line.slice(0, 200) + (line.length > 200 ? "..." : ""),
                 );
-                setProgress(data);
-                addToast("PDFs processed successfully!", "success");
-              } else if (data.type === "error") {
-                console.error("❌ Processing error from API:", data.error);
-                setError(data.error || "An error occurred");
-                addToast(data.error || "An error occurred", "error");
               }
-            } catch (parseError) {
-              console.error("❌ Failed to parse stream message:", parseError);
-              console.error("Raw line:", line);
             }
           }
         }
@@ -532,7 +553,7 @@ const ArubaSpecialPage = () => {
       console.error("❌ Error in handleGenerate:", err);
       console.error(
         "Error stack:",
-        err instanceof Error ? err.stack : "No stack trace"
+        err instanceof Error ? err.stack : "No stack trace",
       );
 
       const errorMessage =
@@ -593,7 +614,7 @@ const ArubaSpecialPage = () => {
           "Page Number": number;
         }>;
       }>,
-      checkedFields
+      checkedFields,
     );
 
     try {
@@ -640,7 +661,7 @@ const ArubaSpecialPage = () => {
           checkedFields,
           "Client Data.xlsx",
           trackingNumber,
-          split
+          split,
         );
         addToast("Excel file downloaded!", "success");
         setIsTrackingModalOpen(false);
@@ -649,7 +670,7 @@ const ArubaSpecialPage = () => {
         addToast("Failed to download file", "error");
       }
     },
-    [editedGroups, checkedFields, addToast]
+    [editedGroups, checkedFields, addToast],
   );
 
   // Expand to Knowledge Base handler (admin only)
@@ -678,7 +699,7 @@ const ArubaSpecialPage = () => {
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to add ${allFields.length} selected item(s) to the knowledge base?`
+      `Are you sure you want to add ${allFields.length} selected item(s) to the knowledge base?`,
     );
 
     if (!confirmed) return;
@@ -712,7 +733,7 @@ const ArubaSpecialPage = () => {
               ? ` ${data.failedCount} items failed to process.`
               : ""
           }`,
-          "success"
+          "success",
         );
       } else {
         alert(`Failed to add items: ${data.error || "Unknown error"}`);
@@ -738,7 +759,7 @@ const ArubaSpecialPage = () => {
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete the ${lastUploadedToKBIds.length} items that were just uploaded to the knowledge base? This action cannot be undone.`
+      `Are you sure you want to delete the ${lastUploadedToKBIds.length} items that were just uploaded to the knowledge base? This action cannot be undone.`,
     );
 
     if (!confirmed) return;
@@ -761,7 +782,7 @@ const ArubaSpecialPage = () => {
       if (result.success) {
         addToast(
           `Successfully removed ${result.deletedCount} items from the knowledge base`,
-          "success"
+          "success",
         );
         setLastUploadedToKBIds([]);
       } else {
@@ -784,7 +805,7 @@ const ArubaSpecialPage = () => {
         return newChecked;
       });
     },
-    [setCheckedFields]
+    [setCheckedFields],
   );
 
   // Handle bulk select all
@@ -816,7 +837,7 @@ const ArubaSpecialPage = () => {
         return newGroups;
       });
     },
-    [setEditedGroups]
+    [setEditedGroups],
   );
 
   // Handle move row (renumbering)
@@ -843,7 +864,7 @@ const ArubaSpecialPage = () => {
         newGroups.forEach(
           (
             group: { fields: ArubaField[]; clientName: string },
-            groupIdx: number
+            groupIdx: number,
           ) => {
             group.fields.forEach((field: ArubaField) => {
               flattenedFields.push({
@@ -852,7 +873,7 @@ const ArubaSpecialPage = () => {
                 clientName: group.clientName,
               });
             });
-          }
+          },
         );
 
         // Move the field in the flattened array
@@ -867,7 +888,7 @@ const ArubaSpecialPage = () => {
 
         flattenedFields.forEach((item) => {
           let targetGroup = reconstructedGroups.find(
-            (g) => g.clientName === item.clientName
+            (g) => g.clientName === item.clientName,
           );
 
           if (!targetGroup) {
@@ -892,7 +913,7 @@ const ArubaSpecialPage = () => {
         return newCheckedFields;
       });
     },
-    [totalItems, setEditedGroups, setCheckedFields]
+    [totalItems, setEditedGroups, setCheckedFields],
   );
 
   // Handle delete single row
@@ -914,7 +935,7 @@ const ArubaSpecialPage = () => {
               // Remove group if empty
               if (group.fields.length === 0) {
                 const groupIdx = newGroups.findIndex(
-                  (g) => g.clientName === group.clientName
+                  (g) => g.clientName === group.clientName,
                 );
                 if (groupIdx !== -1) {
                   newGroups.splice(groupIdx, 1);
@@ -970,7 +991,7 @@ const ArubaSpecialPage = () => {
       setShowUndoNotification,
       setCheckedFields,
       checkedFields,
-    ]
+    ],
   );
 
   // Handle insert row
@@ -1014,7 +1035,7 @@ const ArubaSpecialPage = () => {
         return newChecked;
       });
     },
-    [setEditedGroups, setCheckedFields]
+    [setEditedGroups, setCheckedFields],
   );
 
   // Handle batch delete
@@ -1133,7 +1154,7 @@ const ArubaSpecialPage = () => {
       mergedField.STKS = rowsToMerge.reduce((sum, r) => sum + r.field.STKS, 0);
       mergedField.BRUTO = rowsToMerge.reduce(
         (sum, r) => sum + r.field.BRUTO,
-        0
+        0,
       );
       mergedField.FOB = rowsToMerge.reduce((sum, r) => sum + r.field.FOB, 0);
 
@@ -1189,13 +1210,13 @@ const ArubaSpecialPage = () => {
 
       // Sort by original index to restore in correct order
       const sortedRows = [...lastBatch.rows].sort(
-        (a, b) => a.globalIndex - b.globalIndex
+        (a, b) => a.globalIndex - b.globalIndex,
       );
 
       sortedRows.forEach((deletedRow) => {
         // Find or create group
         let group = newGroups.find(
-          (g) => g.clientName === deletedRow.clientName
+          (g) => g.clientName === deletedRow.clientName,
         );
         if (!group) {
           group = { clientName: deletedRow.clientName, fields: [] };
@@ -1228,7 +1249,7 @@ const ArubaSpecialPage = () => {
           prev.key === key && prev.direction === "asc" ? "desc" : "asc",
       }));
     },
-    [setSortConfig]
+    [setSortConfig],
   );
 
   const handleSortClear = useCallback(() => {
@@ -1240,7 +1261,7 @@ const ArubaSpecialPage = () => {
     (value: string) => {
       setSearchTerm(value);
     },
-    [setSearchTerm]
+    [setSearchTerm],
   );
 
   const handleTableExpandToggle = useCallback(() => {
@@ -1312,7 +1333,7 @@ const ArubaSpecialPage = () => {
         return newSelection;
       });
     },
-    [setSelectedForDeletion]
+    [setSelectedForDeletion],
   );
 
   // Toggle merge selection for single row
@@ -1324,7 +1345,7 @@ const ArubaSpecialPage = () => {
         return newSelection;
       });
     },
-    [setSelectedForMerge]
+    [setSelectedForMerge],
   );
 
   // Select all for deletion
