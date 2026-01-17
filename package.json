@@ -31,7 +31,7 @@
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.542.0",
     "motion": "^12.23.12",
-    "next": "^16.0.8",
+    "next": "^15.3.3",
     "pdf-parse": "^1.1.1",
     "pdf2json": "^3.0.5",
     "pdfjs-dist": "^3.11.174",
