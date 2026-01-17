@@ -21,14 +21,46 @@ export const metadata: Metadata = {
     "Werkbrief Generation by quickdeclare. We use AI Agents to create werkbriefs from your invoices. Fast, accurate, and efficient. The invoices do not require any special formatting. Just upload your PDF invoices and let our AI handle the rest.",
 };
 
+// Script to disable React DevTools in production
+const disableDevToolsScript = `
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    // Disable React DevTools
+    if (typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object') {
+      for (let [key, value] of Object.entries(window.__REACT_DEVTOOLS_GLOBAL_HOOK__)) {
+        window.__REACT_DEVTOOLS_GLOBAL_HOOK__[key] = typeof value === 'function' ? () => {} : null;
+      }
+    }
+  }
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isProduction = process.env.NODE_ENV === "production";
+  
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
+        <head>
+          {isProduction && (
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  // Disable React DevTools in production
+                  if (typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object') {
+                    for (let [key, value] of Object.entries(window.__REACT_DEVTOOLS_GLOBAL_HOOK__)) {
+                      window.__REACT_DEVTOOLS_GLOBAL_HOOK__[key] = typeof value === 'function' ? () => {} : null;
+                    }
+                  }
+                  // Disable right-click context menu (optional - can be annoying for users)
+                  // document.addEventListener('contextmenu', e => e.preventDefault());
+                `,
+              }}
+            />
+          )}
+        </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
           suppressHydrationWarning
