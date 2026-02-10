@@ -41,7 +41,7 @@ export function formatForExcel(werkbrief: Werkbrief): string {
 
 export function formatSelectedFieldsForExcel(
   fields: Werkbrief["fields"],
-  checkedFields: boolean[]
+  checkedFields: boolean[],
 ): string {
   // Helper function to safely convert to number
   const toNumber = (value: string | number | undefined): number => {
@@ -146,7 +146,7 @@ export function copyToClipboard(text: string): Promise<void> {
 export function downloadExcelFile(
   fields: Werkbrief["fields"],
   checkedFields: boolean[],
-  filename: string = "werkbrief-data.xlsx"
+  filename: string = "werkbrief-data.xlsx",
 ): void {
   // Define type for export data
   type ExportDataRow = {
@@ -178,7 +178,7 @@ export function downloadExcelFile(
       exportData.push({
         Number: rowNumber,
         "GOEDEREN OMSCHRIJVING": String(
-          field["GOEDEREN OMSCHRIJVING"] || ""
+          field["GOEDEREN OMSCHRIJVING"] || "",
         ).trim(),
         "GOEDEREN CODE": String(field["GOEDEREN CODE"] || "").trim(),
         CTNS: Math.round(toNumber(field.CTNS)), // Integer values
@@ -281,6 +281,85 @@ export function downloadExcelFile(
   newRange.e.r = sumRowIndex;
   ws["!ref"] = XLSX.utils.encode_range(newRange);
 
+  // Add additional calculation rows after the sum row
+  // Row indices (0-indexed for xlsx-js-style)
+  const vrachtRowIndex = sumRowIndex + 1;
+  const insRowIndex = sumRowIndex + 2;
+  const onkRowIndex = sumRowIndex + 3;
+  const grandTotalRowIndex = sumRowIndex + 4;
+
+  // Excel row references (1-indexed for formulas)
+  const sumRowRef = sumRowIndex + 1;
+  const vrachtRowRef = vrachtRowIndex + 1;
+  const insRowRef = insRowIndex + 1;
+
+  // Yellow fill style for editable cells
+  const yellowFill = {
+    fill: { fgColor: { rgb: "FFFF00" } },
+    font: { bold: false },
+  };
+
+  // Row 1 after sum: VRACHT label (col F) | empty value (col G) - yellow background
+  ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 5 })] = {
+    t: "s",
+    v: "VRACHT",
+    s: { font: { bold: false } },
+  };
+  ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 6 })] = {
+    t: "n",
+    v: 0,
+    s: yellowFill,
+  };
+
+  // Row 2: Ins label (col F) | formula (col G) - Insurance = (Vracht + Total) * 0.015
+  const insFormula = `(G${vrachtRowRef}+G${sumRowRef})*0.015`;
+  ws[XLSX.utils.encode_cell({ r: insRowIndex, c: 5 })] = {
+    t: "s",
+    v: "Ins",
+    s: { font: { bold: false } },
+  };
+  ws[XLSX.utils.encode_cell({ r: insRowIndex, c: 6 })] = {
+    t: "n",
+    f: insFormula,
+    s: { font: { bold: false } },
+  };
+
+  // Row 3: FAKTOR label (col A) | formula (col B) | ... | Onk label (col F) | empty (col G) - yellow
+  // Faktor = (Total + Ins) * 1.79 / Total
+  const faktorFormula = `(G${sumRowRef}+G${insRowRef})*1.79/G${sumRowRef}`;
+  ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 0 })] = {
+    t: "s",
+    v: "FAKTOR",
+    s: { font: { bold: false } },
+  };
+  ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 1 })] = {
+    t: "n",
+    f: faktorFormula,
+    s: { font: { bold: false } },
+  };
+  ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 5 })] = {
+    t: "s",
+    v: "Onk",
+    s: { font: { bold: false } },
+  };
+  ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 6 })] = {
+    t: "s",
+    v: "",
+    s: yellowFill,
+  };
+
+  // Row 4: Grand Total = Total + Insurance (in col G)
+  const grandTotalFormula = `G${sumRowRef}+G${insRowRef}`;
+  ws[XLSX.utils.encode_cell({ r: grandTotalRowIndex, c: 6 })] = {
+    t: "n",
+    f: grandTotalFormula,
+    s: { font: { bold: false } },
+  };
+
+  // Update range to include all additional rows
+  newRange.e.r = grandTotalRowIndex;
+  ws["!ref"] = XLSX.utils.encode_range(newRange);
+
   // Auto-size columns for better readability
   const columnWidths = [
     { wch: 8 }, // Number
@@ -349,7 +428,7 @@ export function downloadArubaExcelFile(
   checkedFields: boolean[],
   filename: string = "Client Data.xlsx",
   trackingNumber?: string,
-  initialSplit?: number
+  initialSplit?: number,
 ): void {
   // Helper function to safely convert to number
   const toNumber = (value: string | number | undefined): number => {
@@ -389,7 +468,7 @@ export function downloadArubaExcelFile(
         exportData.push({
           Number: rowNumber,
           "GOEDEREN OMSCHRIJVING": String(
-            field["GOEDEREN OMSCHRIJVING"] || ""
+            field["GOEDEREN OMSCHRIJVING"] || "",
           ).trim(),
           "GOEDEREN CODE": String(field["GOEDEREN CODE"] || "").trim(),
           CTNS: Math.round(toNumber(field.CTNS)),
@@ -603,7 +682,7 @@ export function downloadArubaExcelFile(
  */
 export function formatArubaForClipboard(
   groups: ArubaGroup[],
-  checkedFields: boolean[]
+  checkedFields: boolean[],
 ): string {
   // Helper function to safely convert to number
   const toNumber = (value: string | number | undefined): number => {
