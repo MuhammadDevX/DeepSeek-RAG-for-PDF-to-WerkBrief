@@ -25,6 +25,7 @@ import {
 } from "@/lib/excel-formatter";
 import { useUser } from "@clerk/nextjs";
 import { ToastContainer } from "@/components/ui/toast";
+import { PageWrapper } from "@/components/PageWrapper";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
 
@@ -1131,6 +1132,7 @@ const WerkBriefHome = () => {
   }, [editedFields, checkedFields, result, saveToHistory, addToast]);
 
   return (
+    <PageWrapper>
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-full mx-auto p-4 relative">
       {/* Floating History Button - Always Accessible */}
       <button
@@ -1357,6 +1359,7 @@ const WerkBriefHome = () => {
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
+    </PageWrapper>
   );
 };
 

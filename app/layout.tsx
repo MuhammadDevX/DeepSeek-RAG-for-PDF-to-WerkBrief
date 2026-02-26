@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Navbar } from "./page";
 import { WerkbriefProvider } from "@/contexts/WerkbriefContext";
+import { NavigationProgressBar } from "@/components/NavigationProgressBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,6 +66,7 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
           suppressHydrationWarning
         >
+          <NavigationProgressBar />
           <WerkbriefProvider>
             <Navbar />
             {children}

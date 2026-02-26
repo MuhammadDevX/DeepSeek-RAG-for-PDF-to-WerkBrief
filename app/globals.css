@@ -149,3 +149,54 @@
 .animate-scaleIn {
   animation: scaleIn 0.2s ease-out forwards;
 }
+
+/* Navigation progress bar */
+.progress-bar-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  box-shadow: 0 0 8px 1px rgba(99, 102, 241, 0.55);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-shimmer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
+  animation: progress-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-80px);
+  }
+  100% {
+    transform: translateX(600px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar-shimmer {
+    animation: none;
+  }
+  .progress-bar-fill {
+    transition: none !important;
+  }
+}

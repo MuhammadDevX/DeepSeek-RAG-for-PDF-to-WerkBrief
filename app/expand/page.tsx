@@ -6,6 +6,7 @@ import PineconeProgress from "./_components/PineconeProgress";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, Upload, Database, Plus } from "lucide-react";
 import { AddItemToKnowledgebaseModal } from "@/components/AddItemToKnowledgebaseModal";
+import { PageWrapper } from "@/components/PageWrapper";
 
 interface ExcelRow {
   [key: string]: string | number | boolean | null;
@@ -270,6 +271,7 @@ export default function ExpandPage() {
   };
 
   return (
+    <PageWrapper>
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-800 p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
@@ -567,5 +569,6 @@ export default function ExpandPage() {
         }}
       />
     </div>
+    </PageWrapper>
   );
 }

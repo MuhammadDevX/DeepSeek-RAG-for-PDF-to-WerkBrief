@@ -18,6 +18,7 @@ import {
 } from "@/lib/excel-formatter";
 import { ToastContainer } from "@/components/ui/toast";
 import { TrackingNumberModal } from "@/components/TrackingNumberModal";
+import { PageWrapper } from "@/components/PageWrapper";
 import { z } from "zod";
 import { ArubaSpecialSchema } from "@/lib/ai/schema";
 import { ArubaDataTable } from "./_components/ArubaDataTable";
@@ -1372,6 +1373,7 @@ const ArubaSpecialPage = () => {
   }, [setShowUndoNotification]);
 
   return (
+    <PageWrapper>
     <div className="flex flex-col items-center justify-center gap-5 w-full max-w-full mx-auto p-4 relative">
       {/* Collapsible Upload Section */}
       {isUploadSectionCollapsed ? (
@@ -1582,6 +1584,7 @@ const ArubaSpecialPage = () => {
         onConfirm={handleDownloadWithTracking}
       />
     </div>
+    </PageWrapper>
   );
 };
 
