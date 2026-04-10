@@ -10,24 +10,10 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
+import { getAdminStats } from "../_audit-actions";
+import type { AdminStats } from "../_audit-actions";
 
-interface DayData {
-  date: string;
-  werkbrief: number;
-  aruba: number;
-  total: number;
-}
-
-interface Stats {
-  totalUsers: number;
-  activeThisWeek: number;
-  totalWerkbriefs: number;
-  totalAruba: number;
-  totalActivity: number;
-  werkbriefsThisMonth: number;
-  arubaThisMonth: number;
-  dailyActivity: DayData[];
-}
+type Stats = AdminStats;
 
 export function StatsOverview() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -40,10 +26,9 @@ export function StatsOverview() {
     else setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/stats");
-      if (!res.ok) throw new Error("Failed to fetch stats");
-      const data = await res.json();
-      setStats(data.stats);
+      const result = await getAdminStats();
+      if (!result.success || !result.stats) throw new Error(result.error);
+      setStats(result.stats);
     } catch {
       setError("Failed to load stats");
     } finally {

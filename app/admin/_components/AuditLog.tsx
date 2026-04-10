@@ -19,30 +19,11 @@ import {
   Clock,
   HardDrive,
 } from "lucide-react";
+import { getAuditLog } from "../_audit-actions";
+import type { AuditItem, AuditLogResult } from "../_audit-actions";
 
-interface AuditUser {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-}
-
-interface AuditItem {
-  type: "werkbrief" | "aruba" | "admin";
-  key: string;
-  timestamp: string;
-  size: number;
-  user: AuditUser;
-}
-
-interface AuditResponse {
-  success: boolean;
-  items: AuditItem[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+type AuditUser = AuditItem["user"];
+type AuditResponse = AuditLogResult;
 
 const ACTION_LABELS: Record<string, string> = {
   set_role: "Role Changed",
@@ -135,17 +116,15 @@ export function AuditLog() {
       setError(null);
 
       const currentPage = overridePage ?? page;
-      const params = new URLSearchParams({
-        page: String(currentPage),
-        limit: String(limit),
-        action: filterAction,
-      });
-      if (filterUserId) params.set("userId", filterUserId);
 
       try {
-        const res = await fetch(`/api/admin/audit?${params}`);
-        if (!res.ok) throw new Error("Failed to fetch audit log");
-        const json: AuditResponse = await res.json();
+        const json = await getAuditLog({
+          page: currentPage,
+          limit,
+          action: filterAction,
+          userId: filterUserId || undefined,
+        });
+        if (!json.success) throw new Error(json.error);
         setData(json);
       } catch {
         setError("Failed to load audit log. Please try again.");
