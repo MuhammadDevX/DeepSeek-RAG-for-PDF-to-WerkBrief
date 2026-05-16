@@ -928,9 +928,9 @@ const WerkBriefHome = () => {
         setUploadProgress(null);
         console.log("File uploaded successfully, fileKey:", fileKey);
       }
-
+      const description = "Generate an array of json with the required fields for the content extracted from the pdf file."
       const requestBody = {
-        description: "Generate a werkbrief",
+        description: description,
         fileKey,
         streaming: useStreaming,
       };
@@ -1055,13 +1055,14 @@ const WerkBriefHome = () => {
           setError(null);
           setProgress(null);
 
+          const description = "Generate an array of json with the required fields for the content extracted from the pdf file."
           const fallbackResponse = await fetch("/api/werkbrief", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              description: "Generate a werkbrief",
+              description: description,
               fileKey: lastFileKey,
               streaming: false,
             }),

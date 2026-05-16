@@ -245,9 +245,10 @@ export async function generateWerkbrief(
       console.log(`Document ${index + 1} is page ${pageNumber} of the PDF`);
 
       try {
+        
         const productsStep = await generateWerkbriefStep(
           `${
-            description || "Generate a werkbrief for the invoice."
+            description || "Generate an array of json with the required fields for the content extracted from the pdf file."
           }\n\nInvoice/PDF Context (extracted text):\n${docContent}`,
           pageNumber
         );
@@ -389,7 +390,7 @@ export async function generateWerkbriefStep(text: string, pageNumber?: number) {
       system: productsAnalyzerPrompt,
       prompt: `${text.trim()}`,
       schema: ProductsBoughtSchema,
-      temperature: 0, // For deterministic results
+      temperature: 0.25, // For deterministic results
     });
 
     console.log(`Products extracted: ${store.products.length}`);
@@ -415,15 +416,15 @@ export async function generateWerkbriefStep(text: string, pageNumber?: number) {
     const { object: werkBriefObj } = await generateObject({
       model: openai("gpt-4o-mini"),
       system: werkbriefSystemPrompt,
-      prompt: `Generate a werkbrief for the following products:${store.products
+      prompt: `Generate an array of json with the required fields for the content extracted from the pdf file. The products are:${store.products
         .map((p, i) => {
           return `${i}.${p.desc}, cartons:${p.ctns}, bruto:${p.bruto}, fob:${p.fob}, stks:${p.stks}`;
         })
-        .join("\n\n")}\n. Here are the relevant snippets:\n${retrieved
+        .join("\n\n")}\n. >>>>> The source reference which you can extract information from are the following:\n${retrieved
         .map((r, i) => `(${i + 1}) ${r}`)
         .join("\n")}`,
       schema: ProductFieldsSchema, // AI model only generates fields, not metadata
-      temperature: 0,
+      temperature: 0.3,
     });
 
     // Agent assigns page number to all fields based on PDF structure
