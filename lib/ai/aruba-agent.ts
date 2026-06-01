@@ -140,11 +140,10 @@ Be precise and use the exact codes and descriptions from the knowledge base when
 
   try {
     const result = await generateObject({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-5-mini"),
       schema: ArubaProductFieldsSchema,
       prompt,
       system: systemPrompt,
-      temperature: 0.3,
     });
 
     // Return first field (should only have one)

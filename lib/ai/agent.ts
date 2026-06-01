@@ -386,11 +386,10 @@ export async function generateWerkbriefStep(text: string, pageNumber?: number) {
 
   return await withRetry(async () => {
     const { object: store } = await generateObject({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-5-mini"),
       system: productsAnalyzerPrompt,
       prompt: `${text.trim()}`,
       schema: ProductsBoughtSchema,
-      temperature: 0.25, // For deterministic results
     });
 
     console.log(`Products extracted: ${store.products.length}`);
@@ -414,7 +413,7 @@ export async function generateWerkbriefStep(text: string, pageNumber?: number) {
     );
 
     const { object: werkBriefObj } = await generateObject({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-5-mini"),
       system: werkbriefSystemPrompt,
       prompt: `Generate an array of json with the required fields for the content extracted from the pdf file. The products are:${store.products
         .map((p, i) => {
@@ -424,7 +423,6 @@ export async function generateWerkbriefStep(text: string, pageNumber?: number) {
         .map((r, i) => `(${i + 1}) ${r}`)
         .join("\n")}`,
       schema: ProductFieldsSchema, // AI model only generates fields, not metadata
-      temperature: 0.3,
     });
 
     // Agent assigns page number to all fields based on PDF structure
