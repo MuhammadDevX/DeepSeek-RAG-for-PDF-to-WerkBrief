@@ -268,6 +268,17 @@ export default function UploadExcel({
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Excel files (.xlsx, .xls) only
             </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <span className="font-medium">Required columns:</span> Item Name,
+              Goederen Omschrijving, Goederen Code (HS Code)
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="font-medium">Optional columns:</span> Needs IVA,
+              Needs DTZ{" "}
+              <span className="text-zinc-400 dark:text-zinc-500">
+                (Yes/No — stored on each item)
+              </span>
+            </p>
           </div>
 
           <input

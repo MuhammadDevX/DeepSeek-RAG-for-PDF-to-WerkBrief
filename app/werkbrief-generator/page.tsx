@@ -26,6 +26,7 @@ import {
 import { useUser } from "@clerk/nextjs";
 import { ToastContainer } from "@/components/ui/toast";
 import { PageWrapper } from "@/components/PageWrapper";
+import { ExcludePagesControl } from "@/components/ExcludePagesControl";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
 
@@ -1120,7 +1121,7 @@ const WerkBriefHome = () => {
       await saveToHistory(werkbriefToSave);
 
       // Then download
-      downloadExcelFile(editedFields, checkedFields);
+      await downloadExcelFile(editedFields, checkedFields);
 
       addToast(
         "Werkbrief saved to history and downloaded successfully",
@@ -1297,6 +1298,14 @@ const WerkBriefHome = () => {
             totalBruto={totalBruto}
             onTotalBrutoChange={handleTotalBrutoChange}
           />
+
+          <div className="flex justify-end px-2 py-2">
+            <ExcludePagesControl
+              pageNumbers={editedFields.map((f) => Number(f["Page Number"]))}
+              checkedFields={checkedFields}
+              setCheckedFields={setCheckedFields}
+            />
+          </div>
 
           <UndoNotification
             isVisible={showUndoNotification && deletedRows.length > 0}

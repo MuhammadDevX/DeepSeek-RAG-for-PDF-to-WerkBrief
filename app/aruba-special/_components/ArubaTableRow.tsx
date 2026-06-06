@@ -3,12 +3,18 @@ import React, { memo, useCallback, useState } from "react";
 import { Plus, Trash2, Search } from "lucide-react";
 import DebouncedInput from "@/components/ui/debounced-input";
 import { SearchGoederenModal } from "@/components/SearchGoederenModal";
+import { DualSourceField } from "@/components/DualSourceField";
 import styles from "../../werkbrief-generator/styles.module.css";
 
 type ArubaField = {
   "Item Description": string;
   "GOEDEREN OMSCHRIJVING": string;
   "GOEDEREN CODE": string;
+  defaultCode?: string;
+  defaultOmschrijving?: string;
+  codeSource?: "ai" | "library";
+  needsIVA?: boolean;
+  needsDTZ?: boolean;
   CTNS: number;
   STKS: number;
   BRUTO: number;
@@ -65,6 +71,10 @@ const ArubaTableRow = memo(
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const [isEditingRowNumber, setIsEditingRowNumber] = useState(false);
     const [tempRowNumber, setTempRowNumber] = useState("");
+
+    // --- Dual code source (AI prediction vs library default) ---
+    // The active source is shared between Code and Omschrijving.
+    const activeSource = field.codeSource === "library" ? "library" : "ai";
 
     // Memoized event handlers
     const handleCheckboxChange = useCallback(
@@ -188,6 +198,30 @@ const ArubaTableRow = memo(
       },
       [handleRowNumberBlur]
     );
+
+    const setCodeSource = useCallback(
+      (src: "ai" | "library") => {
+        handleInputChange(
+          "codeSource" as keyof ArubaField,
+          src as unknown as string
+        );
+      },
+      [handleInputChange]
+    );
+
+    const toggleIVA = useCallback(() => {
+      handleInputChange(
+        "needsIVA" as keyof ArubaField,
+        (!field.needsIVA) as unknown as number
+      );
+    }, [handleInputChange, field.needsIVA]);
+
+    const toggleDTZ = useCallback(() => {
+      handleInputChange(
+        "needsDTZ" as keyof ArubaField,
+        (!field.needsDTZ) as unknown as number
+      );
+    }, [handleInputChange, field.needsDTZ]);
 
     const handleSearchClick = useCallback(() => {
       setIsSearchModalOpen(true);
@@ -326,24 +360,27 @@ const ArubaTableRow = memo(
           </td>
 
           {/* GOEDEREN OMSCHRIJVING */}
-          <td className="px-3 py-3 border-r border-gray-200 dark:border-gray-700">
-            <DebouncedInput
-              type="text"
+          <td className="px-3 py-3 align-top border-r border-gray-200 dark:border-gray-700">
+            <DualSourceField
               value={field["GOEDEREN OMSCHRIJVING"]}
               onChange={handleGoederenOmschrijvingChange}
-              className="w-full text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg px-3 py-2 transition-colors duration-150"
-              title={field["GOEDEREN OMSCHRIJVING"]}
+              libValue={field.defaultOmschrijving}
+              activeSource={activeSource}
+              onSelectSource={setCodeSource}
+              placeholder="Omschrijving"
             />
           </td>
 
           {/* GOEDEREN CODE */}
-          <td className="px-3 py-3 border-r border-gray-200 dark:border-gray-700">
-            <DebouncedInput
-              type="text"
+          <td className="px-3 py-3 align-top border-r border-gray-200 dark:border-gray-700">
+            <DualSourceField
               value={field["GOEDEREN CODE"]}
               onChange={handleGoederenCodeChange}
-              className="w-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
-              title={field["GOEDEREN CODE"]}
+              libValue={field.defaultCode}
+              activeSource={activeSource}
+              onSelectSource={setCodeSource}
+              mono
+              placeholder="Code"
             />
           </td>
 
@@ -434,6 +471,38 @@ const ArubaTableRow = memo(
               className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-indigo-50 dark:bg-indigo-900/20 px-2 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-colors duration-150"
               placeholder="Page"
             />
+          </td>
+
+          {/* IVA */}
+          <td className="px-2 py-3 text-center border-r border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={toggleIVA}
+              className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-semibold border transition-colors duration-150 ${
+                field.needsIVA
+                  ? "bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                  : "bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700"
+              }`}
+              title="Toggle needs IVA"
+            >
+              {field.needsIVA ? "IVA" : "—"}
+            </button>
+          </td>
+
+          {/* DTZ */}
+          <td className="px-2 py-3 text-center border-r border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={toggleDTZ}
+              className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-semibold border transition-colors duration-150 ${
+                field.needsDTZ
+                  ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700"
+                  : "bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700"
+              }`}
+              title="Toggle needs DTZ"
+            >
+              {field.needsDTZ ? "DTZ" : "—"}
+            </button>
           </td>
 
           {/* Search Button */}

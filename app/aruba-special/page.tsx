@@ -19,6 +19,7 @@ import {
 import { ToastContainer } from "@/components/ui/toast";
 import { TrackingNumberModal } from "@/components/TrackingNumberModal";
 import { PageWrapper } from "@/components/PageWrapper";
+import { ExcludePagesControl } from "@/components/ExcludePagesControl";
 import { z } from "zod";
 import { ArubaSpecialSchema } from "@/lib/ai/schema";
 import { ArubaDataTable } from "./_components/ArubaDataTable";
@@ -638,11 +639,11 @@ const ArubaSpecialPage = () => {
 
   // Handle download with tracking info
   const handleDownloadWithTracking = useCallback(
-    (trackingNumber: string, split: number) => {
+    async (trackingNumber: string, split: number) => {
       if (!editedGroups || editedGroups.length === 0) return;
 
       try {
-        downloadArubaExcelFile(
+        await downloadArubaExcelFile(
           editedGroups as Array<{
             clientName: string;
             consigneeName?: string;
@@ -1511,6 +1512,16 @@ const ArubaSpecialPage = () => {
             totalBruto={totalBruto}
             onTotalBrutoChange={handleTotalBrutoChange}
           />
+
+          <div className="flex justify-end px-2 py-2">
+            <ExcludePagesControl
+              pageNumbers={editedGroups.flatMap((g) =>
+                g.fields.map((f) => Number(f["Page Number"]))
+              )}
+              checkedFields={checkedFields}
+              setCheckedFields={setCheckedFields}
+            />
+          </div>
 
           <UndoNotification
             isVisible={showUndoNotification && deletedRows.length > 0}

@@ -102,6 +102,13 @@ export function validateExcelColumns(columns: string[]): ValidationResult {
   };
 }
 
+// Parse a loosely-typed cell into a boolean (yes/true/1/ja/x => true).
+function toBool(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  const s = String(value ?? '').trim().toLowerCase();
+  return ['yes', 'true', '1', 'ja', 'y', 'x'].includes(s);
+}
+
 export function processExcelDataForPinecone(data: ExcelData): Array<{
   id: string;
   content: string;
@@ -110,9 +117,20 @@ export function processExcelDataForPinecone(data: ExcelData): Array<{
     code: string;
     gdesc: string;
     category: string;
+    needsIVA?: boolean;
+    needsDTZ?: boolean;
   };
 }> {
-  return data.rows.map((row, index) => {
+  // Optional IVA / DTZ columns — matched case-insensitively, only included when
+  // present in the sheet (so existing files without them keep working).
+  const ivaCol = data.columns.find((c) =>
+    ['needs iva', 'iva'].includes(c.toLowerCase().trim())
+  );
+  const dtzCol = data.columns.find((c) =>
+    ['needs dtz', 'dtz'].includes(c.toLowerCase().trim())
+  );
+
+  return data.rows.map((row) => {
     const itemName = row['Item Name'] || '';
     const goederenOmschrijving = row['Goederen Omschrijving'] || '';
     const goederenCode = row['Goederen Code (HS Code)'] || '';
@@ -120,15 +138,27 @@ export function processExcelDataForPinecone(data: ExcelData): Array<{
     // Create content similar to the Python notebook
     const content = `The description of this item is: ${itemName}\nThe description of the goods is: ${goederenOmschrijving}`;
 
+    const metadata: {
+      desc: string;
+      code: string;
+      gdesc: string;
+      category: string;
+      needsIVA?: boolean;
+      needsDTZ?: boolean;
+    } = {
+      desc: itemName,
+      code: goederenCode,
+      gdesc: goederenOmschrijving,
+      category: 'NaN',
+    };
+
+    if (ivaCol) metadata.needsIVA = toBool(row[ivaCol]);
+    if (dtzCol) metadata.needsDTZ = toBool(row[dtzCol]);
+
     return {
       id: itemName.replace(/[^\x00-\x7F]/g, ''),
       content,
-      metadata: {
-        desc: itemName,
-        code: goederenCode,
-        gdesc: goederenOmschrijving,
-        category: 'NaN'
-      }
+      metadata,
     };
   });
 }

@@ -11,6 +11,11 @@ interface WerkbriefItem {
   "Item Description": string;
   "GOEDEREN OMSCHRIJVING": string;
   "GOEDEREN CODE": string;
+  defaultCode?: string;
+  defaultOmschrijving?: string;
+  codeSource?: "ai" | "library";
+  needsIVA?: boolean;
+  needsDTZ?: boolean;
   CTNS: number;
   STKS: number;
   BRUTO: number;
@@ -60,11 +65,20 @@ export async function POST(request: NextRequest) {
     // Process items in batches
     for (const item of items as WerkbriefItem[]) {
       try {
-        const {
-          "Item Description": itemDesc,
-          "GOEDEREN OMSCHRIJVING": gdesc,
-          "GOEDEREN CODE": gcode,
-        } = item;
+        const itemDesc = item["Item Description"];
+
+        // Save the ACTIVE source the user selected — when a row is switched to
+        // "library" (because the AI code was wrong), persist the corrected
+        // library code/omschrijving so the history learns the right value.
+        const useLibrary =
+          item.codeSource === "library" && !!item.defaultCode;
+        const gcode = useLibrary
+          ? item.defaultCode!
+          : item["GOEDEREN CODE"];
+        const gdesc =
+          useLibrary && item.defaultOmschrijving
+            ? item.defaultOmschrijving
+            : item["GOEDEREN OMSCHRIJVING"];
 
         if (!itemDesc || !gdesc || !gcode) {
           failedCount++;
@@ -96,6 +110,8 @@ export async function POST(request: NextRequest) {
             gdesc: gdesc,
             code: gcode,
             category: "",
+            needsIVA: !!item.needsIVA,
+            needsDTZ: !!item.needsDTZ,
             text: content,
             source: "werkbrief",
             added_at: new Date().toISOString(),

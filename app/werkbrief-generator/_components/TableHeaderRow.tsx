@@ -124,6 +124,12 @@ export const TableHeaderRow = React.memo(
           Actions
         </th>
         <SortableHeader
+          sortKey="clientName"
+          className="w-28 px-2 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850"
+        >
+          Client
+        </SortableHeader>
+        <SortableHeader
           sortKey="Item Description"
           className="w-72 px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850"
         >
@@ -137,7 +143,7 @@ export const TableHeaderRow = React.memo(
         </SortableHeader>
         <SortableHeader
           sortKey="GOEDEREN CODE"
-          className="w-24 px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850"
+          className="w-36 px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850"
         >
           Code
         </SortableHeader>
@@ -174,6 +180,12 @@ export const TableHeaderRow = React.memo(
         >
           <div className="flex items-center gap-1 justify-center">Page</div>
         </SortableHeader>
+        <th className="w-14 px-2 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+          IVA
+        </th>
+        <th className="w-14 px-2 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+          DTZ
+        </th>
         <th className="w-20 px-2 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
           Search
         </th>

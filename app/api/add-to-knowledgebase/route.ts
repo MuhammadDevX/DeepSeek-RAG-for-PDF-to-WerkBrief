@@ -20,8 +20,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { itemName, goederenOmschrijving, goederenCode, category } =
-      await request.json();
+    const {
+      itemName,
+      goederenOmschrijving,
+      goederenCode,
+      category,
+      needsIVA,
+      needsDTZ,
+    } = await request.json();
 
     // Validation
     if (!itemName || typeof itemName !== "string") {
@@ -77,6 +83,8 @@ export async function POST(request: NextRequest) {
           gdesc: goederenOmschrijving,
           code: goederenCode,
           category: category || "N/A",
+          needsIVA: !!needsIVA,
+          needsDTZ: !!needsDTZ,
           text: content,
           source: "manual_entry",
           added_at: new Date().toISOString(),

@@ -1,5 +1,39 @@
 import { Werkbrief } from "@/lib/ai/schema";
-import * as XLSX from "xlsx-js-style";
+
+// xlsx-js-style is a large dependency (~200KB). It is only needed when the user
+// actually exports an Excel file, so it is dynamically imported inside the
+// download functions (below) instead of at module load. This keeps it out of
+// the initial bundle of any page that imports this formatter.
+
+// --- Dual code source helpers ---------------------------------------------
+// A row carries both an AI-predicted (GOEDEREN CODE/OMSCHRIJVING) and a library
+// default (defaultCode/defaultOmschrijving). `codeSource` decides which one is
+// active for export. Default to the AI value when codeSource is unset.
+type DualSourceField = {
+  "GOEDEREN OMSCHRIJVING"?: string;
+  "GOEDEREN CODE"?: string;
+  defaultCode?: string;
+  defaultOmschrijving?: string;
+  codeSource?: "ai" | "library";
+  needsIVA?: boolean;
+  needsDTZ?: boolean;
+};
+
+function getActiveCode(field: DualSourceField): string {
+  if (field.codeSource === "library" && field.defaultCode) {
+    return field.defaultCode;
+  }
+  return field["GOEDEREN CODE"] ?? "";
+}
+
+function getActiveOmschrijving(field: DualSourceField): string {
+  if (field.codeSource === "library" && field.defaultOmschrijving) {
+    return field.defaultOmschrijving;
+  }
+  return field["GOEDEREN OMSCHRIJVING"] ?? "";
+}
+
+const yesNo = (v: boolean | undefined): string => (v ? "Yes" : "No");
 
 // Note: This function returns tab-separated format for clipboard
 // Tab-separated format doesn't support styling (bold headers, colored cells)
@@ -63,6 +97,8 @@ export function formatSelectedFieldsForExcel(
     "STKS",
     "BRUTO",
     "FOB",
+    "IVA",
+    "DTZ",
   ];
 
   // Add headers
@@ -84,12 +120,14 @@ export function formatSelectedFieldsForExcel(
 
       const row = [
         rowNumber.toString(),
-        String(field["GOEDEREN OMSCHRIJVING"] || "").trim(),
-        String(field["GOEDEREN CODE"] || "").trim(),
+        getActiveOmschrijving(field).trim(),
+        getActiveCode(field).trim(),
         ctns.toString(), // Integer values
         stks.toString(), // Integer values
         bruto.toString(), // 1 decimal place
         fob.toString(), // 2 decimal places
+        yesNo(field.needsIVA),
+        yesNo(field.needsDTZ),
       ];
       excelData.push(row.join("\t"));
 
@@ -143,11 +181,12 @@ export function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-export function downloadExcelFile(
+export async function downloadExcelFile(
   fields: Werkbrief["fields"],
   checkedFields: boolean[],
   filename: string = "werkbrief-data.xlsx",
-): void {
+): Promise<void> {
+  const XLSX = await import("xlsx-js-style");
   // Define type for export data
   type ExportDataRow = {
     Number: number;
@@ -157,6 +196,8 @@ export function downloadExcelFile(
     STKS: number;
     BRUTO: number;
     FOB: number;
+    IVA: string;
+    DTZ: string;
   };
 
   // Helper function to safely convert to number
@@ -177,14 +218,14 @@ export function downloadExcelFile(
     if (checkedFields[index]) {
       exportData.push({
         Number: rowNumber,
-        "GOEDEREN OMSCHRIJVING": String(
-          field["GOEDEREN OMSCHRIJVING"] || "",
-        ).trim(),
-        "GOEDEREN CODE": String(field["GOEDEREN CODE"] || "").trim(),
+        "GOEDEREN OMSCHRIJVING": getActiveOmschrijving(field).trim(),
+        "GOEDEREN CODE": getActiveCode(field).trim(),
         CTNS: Math.round(toNumber(field.CTNS)), // Integer values
         STKS: Math.round(toNumber(field.STKS)), // Integer values
         BRUTO: parseFloat(toNumber(field.BRUTO).toFixed(1)), // 1 decimal place
         FOB: parseFloat(toNumber(field.FOB).toFixed(2)), // 2 decimal places
+        IVA: yesNo(field.needsIVA),
+        DTZ: yesNo(field.needsDTZ),
       });
       rowNumber++;
     }
@@ -369,6 +410,8 @@ export function downloadExcelFile(
     { wch: 8 }, // STKS
     { wch: 10 }, // BRUTO
     { wch: 10 }, // FOB
+    { wch: 6 }, // IVA
+    { wch: 6 }, // DTZ
   ];
   ws["!cols"] = columnWidths;
 
@@ -385,6 +428,11 @@ type ArubaField = {
   "Item Description": string;
   "GOEDEREN OMSCHRIJVING": string;
   "GOEDEREN CODE": string;
+  defaultCode?: string;
+  defaultOmschrijving?: string;
+  codeSource?: "ai" | "library";
+  needsIVA?: boolean;
+  needsDTZ?: boolean;
   CTNS: number;
   STKS: number;
   BRUTO: number;
@@ -408,6 +456,8 @@ type ArubaExportDataRow = {
   STKS: number;
   BRUTO: number;
   FOB: number;
+  IVA: string;
+  DTZ: string;
 };
 
 type ArubaSummaryRow = {
@@ -423,13 +473,14 @@ type ArubaSummaryRow = {
  * Download Excel file with multiple tabs for Aruba Special data
  * Each client gets their own tab, plus a summary tab
  */
-export function downloadArubaExcelFile(
+export async function downloadArubaExcelFile(
   groups: ArubaGroup[],
   checkedFields: boolean[],
   filename: string = "Client Data.xlsx",
   trackingNumber?: string,
   initialSplit?: number,
-): void {
+): Promise<void> {
+  const XLSX = await import("xlsx-js-style");
   // Helper function to safely convert to number
   const toNumber = (value: string | number | undefined): number => {
     if (value === undefined || value === null || value === "") {
@@ -467,14 +518,14 @@ export function downloadArubaExcelFile(
       if (checkedFields[globalIndex]) {
         exportData.push({
           Number: rowNumber,
-          "GOEDEREN OMSCHRIJVING": String(
-            field["GOEDEREN OMSCHRIJVING"] || "",
-          ).trim(),
-          "GOEDEREN CODE": String(field["GOEDEREN CODE"] || "").trim(),
+          "GOEDEREN OMSCHRIJVING": getActiveOmschrijving(field).trim(),
+          "GOEDEREN CODE": getActiveCode(field).trim(),
           CTNS: Math.round(toNumber(field.CTNS)),
           STKS: Math.round(toNumber(field.STKS)),
           BRUTO: parseFloat(toNumber(field.BRUTO).toFixed(2)), // Changed to 2 decimal places
           FOB: parseFloat(toNumber(field.FOB).toFixed(2)),
+          IVA: yesNo(field.needsIVA),
+          DTZ: yesNo(field.needsDTZ),
         });
 
         totalCTNS += Math.round(toNumber(field.CTNS));
@@ -491,13 +542,14 @@ export function downloadArubaExcelFile(
     if (exportData.length > 0) {
       const ws = XLSX.utils.json_to_sheet(exportData);
 
-      // Add tracking number header if provided
+      // Add tracking number header if provided.
+      // Placed at K1 to avoid colliding with the IVA/DTZ columns (H/I).
       if (trackingNumber) {
         const headerText = `AWB - ${trackingNumber}-${currentSplit}`;
-        XLSX.utils.sheet_add_aoa(ws, [[headerText]], { origin: "H1" });
+        XLSX.utils.sheet_add_aoa(ws, [[headerText]], { origin: "K1" });
 
         // Make the tracking header bold
-        const headerCell = "H1";
+        const headerCell = "K1";
         if (!ws[headerCell]) ws[headerCell] = { t: "s", v: headerText };
         ws[headerCell].s = {
           font: { bold: true },
@@ -578,24 +630,84 @@ export function downloadArubaExcelFile(
       newRange.e.r = sumRowIndex;
       ws["!ref"] = XLSX.utils.encode_range(newRange);
 
-      // Add vracht row below sum row
-      if (group.freightCharge !== undefined) {
-        const vrachtRowIndex = sumRowIndex + 1;
+      // Add the same Vracht / Ins / Faktor / Onk / Grand Total calculation block
+      // that the Werkbrief sheet uses, per client tab. Formulas reference this
+      // tab's own rows (offsets computed from this tab's sum row).
+      const vrachtRowIndex = sumRowIndex + 1;
+      const insRowIndex = sumRowIndex + 2;
+      const onkRowIndex = sumRowIndex + 3;
+      const grandTotalRowIndex = sumRowIndex + 4;
 
-        // Add vracht row cells
-        ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 5 })] = {
-          t: "s",
-          v: "Vracht",
-        };
-        ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 6 })] = {
-          t: "n",
-          v: parseFloat(group.freightCharge.toFixed(2)),
-        };
+      // 1-indexed references for Excel formulas
+      const sumRowRef = sumRowIndex + 1;
+      const vrachtRowRef = vrachtRowIndex + 1;
+      const insRowRef = insRowIndex + 1;
 
-        // Update range to include vracht row
-        newRange.e.r = vrachtRowIndex;
-        ws["!ref"] = XLSX.utils.encode_range(newRange);
-      }
+      const yellowFill = {
+        fill: { fgColor: { rgb: "FFFF00" } },
+        font: { bold: false },
+      };
+
+      // Vracht — seeded from the PDF freight charge, yellow/editable
+      ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 5 })] = {
+        t: "s",
+        v: "Vracht",
+        s: { font: { bold: false } },
+      };
+      ws[XLSX.utils.encode_cell({ r: vrachtRowIndex, c: 6 })] = {
+        t: "n",
+        v:
+          group.freightCharge !== undefined
+            ? parseFloat(group.freightCharge.toFixed(2))
+            : 0,
+        s: yellowFill,
+      };
+
+      // Ins = (Vracht + Total FOB) * 0.015
+      ws[XLSX.utils.encode_cell({ r: insRowIndex, c: 5 })] = {
+        t: "s",
+        v: "Ins",
+        s: { font: { bold: false } },
+      };
+      ws[XLSX.utils.encode_cell({ r: insRowIndex, c: 6 })] = {
+        t: "n",
+        f: `(G${vrachtRowRef}+G${sumRowRef})*0.015`,
+        s: { font: { bold: false } },
+      };
+
+      // Faktor = (Total FOB + Ins) * 1.79 / Total FOB  (label col A, value col B)
+      ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 0 })] = {
+        t: "s",
+        v: "FAKTOR",
+        s: { font: { bold: false } },
+      };
+      ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 1 })] = {
+        t: "n",
+        f: `(G${sumRowRef}+G${insRowRef})*1.79/G${sumRowRef}`,
+        s: { font: { bold: false } },
+      };
+      // Onk — yellow/editable, empty
+      ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 5 })] = {
+        t: "s",
+        v: "Onk",
+        s: { font: { bold: false } },
+      };
+      ws[XLSX.utils.encode_cell({ r: onkRowIndex, c: 6 })] = {
+        t: "s",
+        v: "",
+        s: yellowFill,
+      };
+
+      // Grand Total = Total FOB + Ins
+      ws[XLSX.utils.encode_cell({ r: grandTotalRowIndex, c: 6 })] = {
+        t: "n",
+        f: `G${sumRowRef}+G${insRowRef}`,
+        s: { font: { bold: false } },
+      };
+
+      // Update range to include all additional rows
+      newRange.e.r = grandTotalRowIndex;
+      ws["!ref"] = XLSX.utils.encode_range(newRange);
 
       // Auto-size columns
       const columnWidths = [
@@ -606,7 +718,10 @@ export function downloadArubaExcelFile(
         { wch: 8 }, // STKS
         { wch: 10 }, // BRUTO
         { wch: 10 }, // FOB
-        { wch: 25 }, // Extra column for tracking header
+        { wch: 6 }, // IVA
+        { wch: 6 }, // DTZ
+        { wch: 4 }, // spacer
+        { wch: 25 }, // Extra column for tracking header (K)
       ];
       ws["!cols"] = columnWidths;
 
@@ -702,6 +817,8 @@ export function formatArubaForClipboard(
     "STKS",
     "BRUTO",
     "FOB",
+    "IVA",
+    "DTZ",
   ];
 
   const excelData = [headers.join("\t")];
@@ -727,12 +844,14 @@ export function formatArubaForClipboard(
         const row = [
           globalRowNumber.toString(),
           displayName,
-          String(field["GOEDEREN OMSCHRIJVING"] || "").trim(),
-          String(field["GOEDEREN CODE"] || "").trim(),
+          getActiveOmschrijving(field).trim(),
+          getActiveCode(field).trim(),
           ctns.toString(),
           stks.toString(),
           bruto.toString(), // Changed to 2 decimal places
           fob.toString(),
+          yesNo(field.needsIVA),
+          yesNo(field.needsDTZ),
         ];
         excelData.push(row.join("\t"));
 

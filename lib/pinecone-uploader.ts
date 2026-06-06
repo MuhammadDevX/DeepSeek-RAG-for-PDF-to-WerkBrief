@@ -19,6 +19,8 @@ export interface PineconeDocument {
     code: string;
     gdesc: string;
     category: string;
+    needsIVA?: boolean;
+    needsDTZ?: boolean;
   };
 }
 

@@ -8,6 +8,11 @@ type ArubaField = {
   "Item Description": string;
   "GOEDEREN OMSCHRIJVING": string;
   "GOEDEREN CODE": string;
+  defaultCode?: string;
+  defaultOmschrijving?: string;
+  codeSource?: "ai" | "library";
+  needsIVA?: boolean;
+  needsDTZ?: boolean;
   CTNS: number;
   STKS: number;
   BRUTO: number;
@@ -155,8 +160,8 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
     >
       <div className="min-w-full">
         <table className="w-full border-collapse">
-          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
-            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+          <thead className="sticky top-0 z-10 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+            <tr className="border-b-2 border-gray-300 text-xs uppercase tracking-wider text-gray-600 dark:border-gray-600 dark:text-gray-300">
               {/* Checkbox Header */}
               <th className="p-3 text-center border-r sticky left-0 bg-gray-50 dark:bg-gray-800 z-20 w-12">
                 <input
@@ -265,6 +270,16 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
                 Page
               </SortableHeader>
 
+              {/* IVA Header */}
+              <th className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300">
+                IVA
+              </th>
+
+              {/* DTZ Header */}
+              <th className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300">
+                DTZ
+              </th>
+
               {/* Search Header */}
               <th className="p-3 text-center border-r font-semibold text-gray-700 dark:text-gray-300">
                 Search
@@ -282,7 +297,7 @@ export const ArubaDataTable: React.FC<ArubaDataTableProps> = ({
                 <React.Fragment key={groupIndex}>
                   {/* Group Header Row */}
                   <tr>
-                    <td colSpan={13} className="p-0">
+                    <td colSpan={15} className="p-0">
                       <GroupHeader
                         clientName={group.clientName}
                         itemCount={group.fields.length}

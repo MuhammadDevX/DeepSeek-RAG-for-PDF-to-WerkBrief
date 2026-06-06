@@ -2,6 +2,8 @@ import { generateObject } from "ai";
 import { openai } from "@/config/agents";
 import { ArubaProductFieldsSchema } from "./schema";
 import { retrieveRelevantSnippets } from "./tool-pinecone";
+import { IVA_RULES, DTZ_RULES } from "./default-codes";
+import { classifyWithLibraryAgent } from "./library-agent";
 import { ExtractedProduct } from "../aruba-pdf-parser";
 
 // Parallelization and retry configuration constants
@@ -113,30 +115,57 @@ async function enrichProduct(
   "GOEDEREN OMSCHRIJVING": string;
   "GOEDEREN CODE": string;
   Confidence: string;
+  needsIVA: boolean;
+  needsDTZ: boolean;
+  defaultCode: string;
+  defaultOmschrijving: string;
 }> {
   const productDescription = product.description;
 
-  // Retrieve relevant snippets from Pinecone
-  const snippets = await retrieveRelevantSnippets(productDescription, 3);
+  // Library agent runs independently (regex search + best-category pick) so it
+  // can be compared against the history agent below. Kick it off in parallel.
+  const libraryPromise = classifyWithLibraryAgent(productDescription);
+
+  // Retrieve relevant snippets from Pinecone (history / "AI" source)
+  let snippets: string[] = [];
+  try {
+    snippets = await retrieveRelevantSnippets(productDescription, 3);
+  } catch (error) {
+    console.warn(`Snippet retrieval failed for "${productDescription}":`, error);
+  }
 
   const prompt = `${description}
 
 Product Description: ${productDescription}
 
 Context from knowledge base:
-${snippets}
+${snippets.map((r, i) => `(${i + 1}) ${r}`).join("\n") || "(no relevant snippets found)"}
 
-Based on the product description and the context from the knowledge base, provide the GOEDEREN CODE and GOEDEREN OMSCHRIJVING in Dutch.`;
+Based on the product description and the context from the knowledge base, provide the GOEDEREN CODE and GOEDEREN OMSCHRIJVING in Dutch, plus needsIVA and needsDTZ.`;
 
   const systemPrompt = `You are an expert at matching product descriptions to their corresponding Dutch goods codes (GOEDEREN CODE) and descriptions (GOEDEREN OMSCHRIJVING).
 
 Your task:
 1. Analyze the product description
-2. Use the knowledge base snippets to find the matching GOEDEREN CODE
-3. Provide accurate GOEDEREN OMSCHRIJVING in Dutch
-4. Provide a confidence score (0-100%)
+2. Use the knowledge base snippets to find the SINGLE best-matching record
+3. Use THAT record's exact GOEDEREN CODE and GOEDEREN OMSCHRIJVING (in Dutch)
+4. Set the confidence score (0-100%) to reflect how well the product matches the specific record you chose — high for an exact/near-exact match, low for a loose one
+5. If NONE of the snippets is a reasonable match, do not guess: return GOEDEREN CODE "00000000", GOEDEREN OMSCHRIJVING "ONBEKEND", and Confidence "0%"
+6. For needsIVA and needsDTZ: if the snippet you chose states a "Needs IVA" / "Needs DTZ" value, use exactly that stored value. Only when the snippet does not state it, decide using the rules below.
+
+${IVA_RULES}
+
+${DTZ_RULES}
 
 Be precise and use the exact codes and descriptions from the knowledge base when available.`;
+
+  let ai = {
+    "GOEDEREN OMSCHRIJVING": "ONBEKEND",
+    "GOEDEREN CODE": "00000000",
+    Confidence: "0%",
+    needsIVA: false,
+    needsDTZ: false,
+  };
 
   try {
     const result = await generateObject({
@@ -146,31 +175,36 @@ Be precise and use the exact codes and descriptions from the knowledge base when
       system: systemPrompt,
     });
 
-    // Return first field (should only have one)
     if (result.object.fields.length > 0) {
       const field = result.object.fields[0];
-      return {
+      ai = {
         "GOEDEREN OMSCHRIJVING":
           field["GOEDEREN OMSCHRIJVING"] || productDescription,
         "GOEDEREN CODE": field["GOEDEREN CODE"] || "UNKNOWN",
         Confidence: field.Confidence || "0%",
+        needsIVA: field.needsIVA ?? false,
+        needsDTZ: field.needsDTZ ?? false,
       };
     }
-
-    // Fallback if no fields returned
-    return {
-      "GOEDEREN OMSCHRIJVING": productDescription,
-      "GOEDEREN CODE": "UNKNOWN",
-      Confidence: "0%",
-    };
   } catch (error) {
     console.error("Error enriching product:", error);
-    return {
+    ai = {
       "GOEDEREN OMSCHRIJVING": productDescription,
       "GOEDEREN CODE": "ERROR",
       Confidence: "0%",
+      needsIVA: false,
+      needsDTZ: false,
     };
   }
+
+  // Library source: independent prediction from the default-code table.
+  const def = await libraryPromise;
+
+  return {
+    ...ai,
+    defaultCode: def?.code ?? "",
+    defaultOmschrijving: def?.omschrijving ?? "",
+  };
 }
 
 /**
@@ -236,6 +270,11 @@ export async function processArubaInvoice(
       "Item Description": product.description,
       "GOEDEREN OMSCHRIJVING": enrichedData["GOEDEREN OMSCHRIJVING"],
       "GOEDEREN CODE": enrichedData["GOEDEREN CODE"],
+      defaultCode: enrichedData.defaultCode,
+      defaultOmschrijving: enrichedData.defaultOmschrijving,
+      codeSource: "ai" as const,
+      needsIVA: enrichedData.needsIVA,
+      needsDTZ: enrichedData.needsDTZ,
       CTNS: product.quantity, // Use quantity for CTNS
       STKS: product.quantity, // Use quantity for STKS
       BRUTO: product.totalNetWeight,
@@ -245,12 +284,76 @@ export async function processArubaInvoice(
     };
   });
 
+  // Merge duplicate rows within this client (same active code + omschrijving).
+  const mergedProducts = mergeArubaFields(enrichedProducts);
+
   safeProgress({
     type: "complete",
-    currentStep: `Completed processing ${enrichedProducts.length} products for ${clientName}`,
+    currentStep: `Completed processing ${mergedProducts.length} products for ${clientName}`,
     totalProducts: products.length,
-    processedProducts: enrichedProducts.length,
+    processedProducts: mergedProducts.length,
   });
 
-  return enrichedProducts;
+  return mergedProducts;
+}
+
+type ArubaEnrichedField = {
+  "Item Description": string;
+  "GOEDEREN OMSCHRIJVING": string;
+  "GOEDEREN CODE": string;
+  defaultCode: string;
+  defaultOmschrijving: string;
+  codeSource: "ai" | "library";
+  needsIVA: boolean;
+  needsDTZ: boolean;
+  CTNS: number;
+  STKS: number;
+  BRUTO: number;
+  FOB: number;
+  Confidence: string;
+  "Page Number": number;
+};
+
+/**
+ * Merge rows within a single client group that share the same active code +
+ * omschrijving, summing numeric columns. Order-stable.
+ */
+function mergeArubaFields(fields: ArubaEnrichedField[]): ArubaEnrichedField[] {
+  const merged: ArubaEnrichedField[] = [];
+  const indexByKey = new Map<string, number>();
+
+  const toNum = (v: unknown) => {
+    const n = typeof v === "number" ? v : parseFloat(String(v));
+    return isNaN(n) ? 0 : n;
+  };
+
+  for (const field of fields) {
+    const activeCode =
+      field.codeSource === "library" && field.defaultCode
+        ? field.defaultCode
+        : field["GOEDEREN CODE"];
+    const activeOms =
+      field.codeSource === "library" && field.defaultOmschrijving
+        ? field.defaultOmschrijving
+        : field["GOEDEREN OMSCHRIJVING"];
+    const key = `${String(activeCode).trim().toLowerCase()}|${String(activeOms)
+      .trim()
+      .toLowerCase()}`;
+
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex === undefined) {
+      indexByKey.set(key, merged.length);
+      merged.push({ ...field });
+    } else {
+      const target = merged[existingIndex];
+      target.CTNS = toNum(target.CTNS) + toNum(field.CTNS);
+      target.STKS = toNum(target.STKS) + toNum(field.STKS);
+      target.BRUTO = toNum(target.BRUTO) + toNum(field.BRUTO);
+      target.FOB = toNum(target.FOB) + toNum(field.FOB);
+      target.needsIVA = target.needsIVA || field.needsIVA;
+      target.needsDTZ = target.needsDTZ || field.needsDTZ;
+    }
+  }
+
+  return merged;
 }

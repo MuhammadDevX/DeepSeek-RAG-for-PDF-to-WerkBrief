@@ -22,6 +22,8 @@ export function AddItemToKnowledgebaseModal({
   const [goederenOmschrijving, setGoederenOmschrijving] = useState("");
   const [goederenCode, setGoederenCode] = useState("");
   const [category, setCategory] = useState("");
+  const [needsIVA, setNeedsIVA] = useState(false);
+  const [needsDTZ, setNeedsDTZ] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -43,6 +45,8 @@ export function AddItemToKnowledgebaseModal({
           goederenOmschrijving: goederenOmschrijving.trim(),
           goederenCode: goederenCode.trim(),
           category: category.trim() || undefined,
+          needsIVA,
+          needsDTZ,
         }),
       });
 
@@ -56,6 +60,8 @@ export function AddItemToKnowledgebaseModal({
         setGoederenOmschrijving("");
         setGoederenCode("");
         setCategory("");
+        setNeedsIVA(false);
+        setNeedsDTZ(false);
 
         setTimeout(() => {
           setSuccess(false);
@@ -81,6 +87,8 @@ export function AddItemToKnowledgebaseModal({
       setGoederenOmschrijving("");
       setGoederenCode("");
       setCategory("");
+      setNeedsIVA(false);
+      setNeedsDTZ(false);
       setError(null);
       setSuccess(false);
       onClose();
@@ -154,6 +162,46 @@ export function AddItemToKnowledgebaseModal({
             disabled={isLoading}
             className="w-full"
           />
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <label
+            className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+              needsIVA
+                ? "border-rose-300 bg-rose-50 dark:border-rose-700 dark:bg-rose-900/20"
+                : "border-gray-200 dark:border-gray-700"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={needsIVA}
+              onChange={(e) => setNeedsIVA(e.target.checked)}
+              disabled={isLoading}
+              className="h-4 w-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+            />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Needs IVA
+            </span>
+          </label>
+
+          <label
+            className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+              needsDTZ
+                ? "border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-900/20"
+                : "border-gray-200 dark:border-gray-700"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={needsDTZ}
+              onChange={(e) => setNeedsDTZ(e.target.checked)}
+              disabled={isLoading}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Needs DTZ
+            </span>
+          </label>
         </div>
 
         {error && (

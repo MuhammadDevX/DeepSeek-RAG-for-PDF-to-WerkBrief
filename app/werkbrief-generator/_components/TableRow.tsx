@@ -5,6 +5,7 @@ import { WerkbriefSchema } from "@/lib/ai/schema";
 import { z } from "zod";
 import DebouncedInput from "@/components/ui/debounced-input";
 import { SearchGoederenModal } from "@/components/SearchGoederenModal";
+import { DualSourceField } from "@/components/DualSourceField";
 import styles from "../styles.module.css";
 
 type Werkbrief = z.infer<typeof WerkbriefSchema>;
@@ -53,6 +54,10 @@ const TableRow = memo(
   }: TableRowProps) => {
     const confidence = parseFloat(originalField.Confidence || "0");
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+    // --- Dual code source (AI prediction vs library default) ---
+    // The active source is shared between Code and Omschrijving.
+    const activeSource = field.codeSource === "library" ? "library" : "ai";
 
     // Memoized event handlers to prevent unnecessary re-renders
     const handleCheckboxChange = useCallback(
@@ -130,6 +135,29 @@ const TableRow = memo(
       },
       [index, onFieldChange]
     );
+
+    const handleClientNameChange = useCallback(
+      (value: string | number) => {
+        onFieldChange(index, "clientName", value);
+      },
+      [index, onFieldChange]
+    );
+
+    const setCodeSource = useCallback(
+      (src: "ai" | "library") => {
+        // codeSource is stored on the field; cast to satisfy the shared handler.
+        onFieldChange(index, "codeSource", src as unknown as string);
+      },
+      [index, onFieldChange]
+    );
+
+    const toggleIVA = useCallback(() => {
+      onFieldChange(index, "needsIVA", (!field.needsIVA) as unknown as number);
+    }, [index, onFieldChange, field.needsIVA]);
+
+    const toggleDTZ = useCallback(() => {
+      onFieldChange(index, "needsDTZ", (!field.needsDTZ) as unknown as number);
+    }, [index, onFieldChange, field.needsDTZ]);
 
     const handleSearchClick = useCallback(() => {
       setIsSearchModalOpen(true);
@@ -285,6 +313,16 @@ const TableRow = memo(
               </button>
             </div>
           </td>
+          <td className="px-2 py-3">
+            <DebouncedInput
+              type="text"
+              value={field.clientName || ""}
+              onChange={handleClientNameChange}
+              className="w-full text-xs text-gray-700 dark:text-gray-300 bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg px-2 py-2 transition-colors duration-150"
+              title={field.clientName || ""}
+              placeholder="Client"
+            />
+          </td>
           <td className="px-3 py-3 relative">
             <div className="relative group">
               <DebouncedInput
@@ -296,22 +334,25 @@ const TableRow = memo(
               />
             </div>
           </td>
-          <td className="px-3 py-3">
-            <DebouncedInput
-              type="text"
+          <td className="px-3 py-3 align-top">
+            <DualSourceField
               value={field["GOEDEREN OMSCHRIJVING"]}
               onChange={handleGoederenOmschrijvingChange}
-              className="w-full text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-transparent border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg px-3 py-2 transition-colors duration-150"
-              title={field["GOEDEREN OMSCHRIJVING"]}
+              libValue={field.defaultOmschrijving}
+              activeSource={activeSource}
+              onSelectSource={setCodeSource}
+              placeholder="Omschrijving"
             />
           </td>
-          <td className="px-3 py-3">
-            <DebouncedInput
-              type="text"
+          <td className="px-3 py-3 align-top">
+            <DualSourceField
               value={field["GOEDEREN CODE"]}
               onChange={handleGoederenCodeChange}
-              className="w-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
-              title={field["GOEDEREN CODE"]}
+              libValue={field.defaultCode}
+              activeSource={activeSource}
+              onSelectSource={setCodeSource}
+              mono
+              placeholder="Code"
             />
           </td>
           <td className="px-2 py-3 text-center">
@@ -390,6 +431,34 @@ const TableRow = memo(
               className="w-full text-sm font-semibold text-gray-900 dark:text-white bg-indigo-50 dark:bg-indigo-900/20 px-2 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center transition-colors duration-150"
               placeholder="Page"
             />
+          </td>
+          <td className="px-2 py-3 text-center">
+            <button
+              type="button"
+              onClick={toggleIVA}
+              className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-semibold border transition-colors duration-150 ${
+                field.needsIVA
+                  ? "bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                  : "bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700"
+              }`}
+              title="Toggle needs IVA"
+            >
+              {field.needsIVA ? "IVA" : "—"}
+            </button>
+          </td>
+          <td className="px-2 py-3 text-center">
+            <button
+              type="button"
+              onClick={toggleDTZ}
+              className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-semibold border transition-colors duration-150 ${
+                field.needsDTZ
+                  ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700"
+                  : "bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700"
+              }`}
+              title="Toggle needs DTZ"
+            >
+              {field.needsDTZ ? "DTZ" : "—"}
+            </button>
           </td>
           <td className="px-2 py-3 text-center">
             <button

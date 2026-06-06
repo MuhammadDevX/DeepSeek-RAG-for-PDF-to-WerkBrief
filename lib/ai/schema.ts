@@ -28,6 +28,14 @@ export const ProductFieldsSchema = z.object({
         description:
           "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
       }),
+      needsIVA: z.boolean({
+        description:
+          "True if this product requires IVA inspection (e.g. anything containing HEMP or MINOXIDIL, microneedling for face, tattoo needles, water/nitrite test kits). Plain skincare serums do NOT need IVA.",
+      }),
+      needsDTZ: z.boolean({
+        description:
+          "True if this product requires DTZ (e.g. car alarm/keyless systems, smart body scales, cordless/stick vacuum cleaners, marine/car radios, wireless printers, voice recorders). Headphones/headsets/earphones do NOT need DTZ.",
+      }),
       // Note: Page Number is NOT here - model doesn't extract it from content
       // It's assigned by the agent based on PDF structure
     })
@@ -61,6 +69,27 @@ export const WerkbriefSchema = z.object({
         description:
           "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
       }),
+      // --- Dual code source (library default vs AI prediction) ---
+      defaultCode: z
+        .string()
+        .optional()
+        .describe("Library default GOEDEREN CODE from the Notes.txt category table"),
+      defaultOmschrijving: z
+        .string()
+        .optional()
+        .describe("Library default GOEDEREN OMSCHRIJVING from the Notes.txt category table"),
+      codeSource: z
+        .enum(["ai", "library"])
+        .optional()
+        .describe("Which source is active for export: 'ai' (Pinecone-predicted) or 'library' (default-code table)"),
+      // --- Classification flags ---
+      needsIVA: z.boolean().optional().describe("Whether this product requires IVA"),
+      needsDTZ: z.boolean().optional().describe("Whether this product requires DTZ"),
+      // --- Client / consignee (used for de-duplication & merging) ---
+      clientName: z
+        .string()
+        .optional()
+        .describe("Predicted consignee/client this product belongs to"),
       "Page Number": z.number({
         description: "Page number from the PDF where this product was found",
       }),
@@ -82,12 +111,18 @@ export const ProductsBoughtSchema = z.object({
   products: z.array(
     z.object({
       desc: z.string({ description: "Name of the item bought" }),
-      bruto: z.string({ description: "Number of cartons for that product" }),
-      stks: z.string({ description: "Pieces (total units inside the carton)" }),
+      clientName: z.string({
+        description:
+          "Name of the consignee / ship-to client this product belongs to (from the CONSIGNEE / Ship To / Bill To section on the page). Use the same exact name for every product in the same order. Use an empty string if no client can be determined.",
+      }),
+      bruto: z.number({
+        description: "Bruto weight = gross weight in kilograms (kg).",
+      }),
+      stks: z.number({ description: "Pieces (total units inside the carton)" }),
       ctns: z.number({
         description: "Cartons (number of cartons/packages for that product).",
       }),
-      fob: z.string({
+      fob: z.number({
         description: "final cost of goods",
       }),
     })
@@ -111,6 +146,14 @@ export const ArubaProductFieldsSchema = z.object({
       Confidence: z.string({
         description:
           "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
+      }),
+      needsIVA: z.boolean({
+        description:
+          "True if this product requires IVA inspection (e.g. anything containing HEMP or MINOXIDIL, microneedling for face, tattoo needles, water/nitrite test kits). Plain skincare serums do NOT need IVA.",
+      }),
+      needsDTZ: z.boolean({
+        description:
+          "True if this product requires DTZ (e.g. car alarm/keyless systems, smart body scales, cordless/stick vacuum cleaners, marine/car radios, wireless printers, voice recorders). Headphones/headsets/earphones do NOT need DTZ.",
       }),
     })
   ),
@@ -161,6 +204,22 @@ export const ArubaSpecialSchema = z.object({
             description:
               "Confidence score for the correct GOEDEREN CODE and GOEDEREN OMSCHRIJVING in %",
           }),
+          // --- Dual code source (library default vs AI prediction) ---
+          defaultCode: z
+            .string()
+            .optional()
+            .describe("Library default GOEDEREN CODE from the Notes.txt category table"),
+          defaultOmschrijving: z
+            .string()
+            .optional()
+            .describe("Library default GOEDEREN OMSCHRIJVING from the Notes.txt category table"),
+          codeSource: z
+            .enum(["ai", "library"])
+            .optional()
+            .describe("Which source is active for export: 'ai' or 'library'"),
+          // --- Classification flags ---
+          needsIVA: z.boolean().optional().describe("Whether this product requires IVA"),
+          needsDTZ: z.boolean().optional().describe("Whether this product requires DTZ"),
           "Page Number": z.number({
             description:
               "Page number from the PDF where this product was found",

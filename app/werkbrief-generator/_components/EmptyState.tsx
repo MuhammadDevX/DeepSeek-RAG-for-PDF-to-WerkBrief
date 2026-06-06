@@ -13,7 +13,7 @@ export const EmptyState = React.memo(
   ({ hasSearchTerm, searchTerm, onClearSearch }: EmptyStateProps) => {
     return (
       <tr>
-        <td colSpan={11} className="px-6 py-12 text-center">
+        <td colSpan={16} className="px-6 py-12 text-center">
           <div className="text-gray-500 dark:text-gray-400">
             {hasSearchTerm ? (
               <>

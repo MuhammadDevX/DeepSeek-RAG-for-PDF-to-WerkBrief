@@ -1,8 +1,11 @@
 import { generateObject } from "ai";
+import { z } from "zod";
 import { openai } from "@/config/agents";
-import { ProductsBoughtSchema, ProductFieldsSchema } from "./schema";
-import { productsAnalyzerPrompt, werkbriefSystemPrompt } from "./prompt";
+import { ProductsBoughtSchema } from "./schema";
+import { productsAnalyzerPrompt } from "./prompt";
 import { retrieveRelevantSnippets } from "./tool-pinecone";
+import { IVA_RULES, DTZ_RULES } from "./default-codes";
+import { classifyWithLibraryAgent } from "./library-agent";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 
 // Parallelization and retry configuration constants
@@ -250,7 +253,8 @@ export async function generateWerkbrief(
           `${
             description || "Generate an array of json with the required fields for the content extracted from the pdf file."
           }\n\nInvoice/PDF Context (extracted text):\n${docContent}`,
-          pageNumber
+          pageNumber,
+          description || ""
         );
 
         // Mark this page as successfully processed
@@ -328,11 +332,17 @@ export async function generateWerkbrief(
       );
     }
 
-    // Flatten all fields from all documents
-    const fields = allFields.flat();
+    // Flatten all fields from all documents, keep PDF order (stable sort by
+    // page number; within a page the enrichment order already follows the
+    // listing order), then merge duplicate rows that belong to the same client.
+    const flattened = allFields.flat();
+    const ordered = [...flattened].sort(
+      (a, b) => (a["Page Number"] ?? 0) - (b["Page Number"] ?? 0)
+    );
+    const fields = mergeWerkbriefFields(ordered);
 
     console.log(
-      `Parallel processing completed. Total fields extracted: ${fields.length}`
+      `Parallel processing completed. Total fields extracted: ${fields.length} (from ${flattened.length} before merge)`
     );
 
     if (!isProcessingComplete) {
@@ -377,61 +387,196 @@ export async function generateWerkbrief(
   }
 }
 
-export async function generateWerkbriefStep(text: string, pageNumber?: number) {
+// Per-product AI enrichment output (Pinecone-history source) including IVA/DTZ.
+const WerkbriefEnrichSchema = z.object({
+  "GOEDEREN OMSCHRIJVING": z.string({
+    description: "Dutch goods description from the single best-matching snippet",
+  }),
+  "GOEDEREN CODE": z.string({
+    description: "GOEDEREN CODE from the single best-matching snippet",
+  }),
+  Confidence: z.string({
+    description: "Confidence score (0-100%) reflecting how well the chosen snippet matches",
+  }),
+  needsIVA: z.boolean({ description: "Whether the product requires IVA" }),
+  needsDTZ: z.boolean({ description: "Whether the product requires DTZ" }),
+});
+
+type ProductBought = z.infer<typeof ProductsBoughtSchema>["products"][number];
+
+/**
+ * Enrich a single listed product: per-product Pinecone retrieval (AI source),
+ * a parallel library default-code classification (library source), and IVA/DTZ
+ * prediction. Never throws — always returns a complete field so no product is
+ * dropped from the werkbrief.
+ */
+async function enrichWerkbriefProduct(
+  product: ProductBought,
+  description: string,
+  pageNumber: number
+) {
+  const desc = product.desc;
+
+  // Library agent runs independently (regex search + best-category pick) so it
+  // can be compared against the history agent below. Kick it off in parallel.
+  const libraryPromise = classifyWithLibraryAgent(desc);
+
+  // History ("AI") source — retrieve this product's own snippets from Pinecone.
+  let snippets: string[] = [];
+  try {
+    snippets = await retrieveRelevantSnippets(desc, 5);
+  } catch (error) {
+    console.warn(`Snippet retrieval failed for "${desc}":`, error);
+  }
+
+  const systemPrompt = `You are an expert dutch werkbrief creator matching a product to its GOEDEREN CODE and GOEDEREN OMSCHRIJVING.
+- Pick the SINGLE most relevant snippet and use THAT record's exact GOEDEREN CODE and GOEDEREN OMSCHRIJVING (in Dutch).
+- Confidence must reflect match quality: high (90-100%) for exact/near-exact, lower for loose matches.
+- If NONE of the snippets is a reasonable match, do NOT guess: set GOEDEREN CODE "00000000", GOEDEREN OMSCHRIJVING "ONBEKEND", Confidence "0%".
+- For needsIVA and needsDTZ: if the snippet you chose states a "Needs IVA" / "Needs DTZ" value, use exactly that stored value. Only when the snippet does not state it, decide using the rules below.
+
+${IVA_RULES}
+
+${DTZ_RULES}`;
+
+  const prompt = `${description}
+
+Product: ${desc} (cartons:${product.ctns}, bruto:${product.bruto}, fob:${product.fob}, stks:${product.stks})
+
+Context from knowledge base:
+${snippets.map((r, i) => `(${i + 1}) ${r}`).join("\n") || "(no relevant snippets found)"}
+
+Based on the product and the snippets, provide the GOEDEREN CODE and GOEDEREN OMSCHRIJVING in Dutch, plus needsIVA and needsDTZ.`;
+
+  let ai = {
+    "GOEDEREN OMSCHRIJVING": "ONBEKEND",
+    "GOEDEREN CODE": "00000000",
+    Confidence: "0%",
+    needsIVA: false,
+    needsDTZ: false,
+  };
+  try {
+    const { object } = await generateObject({
+      model: openai("gpt-5-mini"),
+      schema: WerkbriefEnrichSchema,
+      system: systemPrompt,
+      prompt,
+    });
+    ai = {
+      "GOEDEREN OMSCHRIJVING": object["GOEDEREN OMSCHRIJVING"] || "ONBEKEND",
+      "GOEDEREN CODE": object["GOEDEREN CODE"] || "00000000",
+      Confidence: object.Confidence || "0%",
+      needsIVA: object.needsIVA ?? false,
+      needsDTZ: object.needsDTZ ?? false,
+    };
+  } catch (error) {
+    console.error(`Enrichment failed for "${desc}":`, error);
+  }
+
+  // Library source: independent prediction from the default-code table.
+  const def = await libraryPromise;
+
+  return {
+    "Item Description": desc,
+    "GOEDEREN OMSCHRIJVING": ai["GOEDEREN OMSCHRIJVING"],
+    "GOEDEREN CODE": ai["GOEDEREN CODE"],
+    defaultCode: def?.code ?? "",
+    defaultOmschrijving: def?.omschrijving ?? "",
+    codeSource: "ai" as "ai" | "library",
+    needsIVA: ai.needsIVA ?? false,
+    needsDTZ: ai.needsDTZ ?? false,
+    clientName: product.clientName || "",
+    CTNS: product.ctns,
+    STKS: product.stks,
+    BRUTO: product.bruto,
+    FOB: product.fob,
+    Confidence: ai.Confidence,
+    "Page Number": pageNumber,
+  };
+}
+
+type WerkbriefField = Awaited<ReturnType<typeof enrichWerkbriefProduct>>;
+
+export async function generateWerkbriefStep(
+  text: string,
+  pageNumber?: number,
+  description = ""
+): Promise<WerkbriefField[]> {
   // Input validation
   if (!text || text.trim().length < 10) {
     console.warn("Text too short for processing:", text.length);
     return [];
   }
 
-  return await withRetry(async () => {
-    const { object: store } = await generateObject({
+  // Step 1: list the products on this page (order preserved).
+  const { object: store } = await withRetry(() =>
+    generateObject({
       model: openai("gpt-5-mini"),
       system: productsAnalyzerPrompt,
       prompt: `${text.trim()}`,
       schema: ProductsBoughtSchema,
-    });
+    })
+  );
 
-    console.log(`Products extracted: ${store.products.length}`);
+  console.log(`Products extracted: ${store.products.length}`);
 
-    if (store.products.length === 0) {
-      console.warn("No products found in document");
-      return [];
+  if (store.products.length === 0) {
+    console.warn("No products found in document");
+    return [];
+  }
+
+  // Step 2: enrich every product in parallel batches (per-product Pinecone +
+  // default-code + IVA/DTZ). processBatches preserves input order and the
+  // processor never throws, so no product is dropped.
+  const enriched = await processBatches(store.products, (product) =>
+    enrichWerkbriefProduct(product, description, pageNumber ?? 0)
+  );
+
+  return enriched;
+}
+
+/**
+ * Merge rows that belong to the same client and share the same active code +
+ * omschrijving, summing the numeric columns. Order-stable (first occurrence
+ * keeps its position).
+ */
+function mergeWerkbriefFields(fields: WerkbriefField[]): WerkbriefField[] {
+  const merged: WerkbriefField[] = [];
+  const indexByKey = new Map<string, number>();
+
+  const toNum = (v: unknown) => {
+    const n = typeof v === "number" ? v : parseFloat(String(v));
+    return isNaN(n) ? 0 : n;
+  };
+
+  for (const field of fields) {
+    const activeCode =
+      field.codeSource === "library" && field.defaultCode
+        ? field.defaultCode
+        : field["GOEDEREN CODE"];
+    const activeOms =
+      field.codeSource === "library" && field.defaultOmschrijving
+        ? field.defaultOmschrijving
+        : field["GOEDEREN OMSCHRIJVING"];
+    const key = `${(field.clientName || "").trim().toLowerCase()}|${String(
+      activeCode
+    ).trim().toLowerCase()}|${String(activeOms).trim().toLowerCase()}`;
+
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex === undefined) {
+      indexByKey.set(key, merged.length);
+      merged.push({ ...field });
+    } else {
+      const target = merged[existingIndex];
+      target.CTNS = toNum(target.CTNS) + toNum(field.CTNS);
+      target.STKS = toNum(target.STKS) + toNum(field.STKS);
+      target.BRUTO = toNum(target.BRUTO) + toNum(field.BRUTO);
+      target.FOB = toNum(target.FOB) + toNum(field.FOB);
+      // Preserve an IVA/DTZ flag if any merged row requires it.
+      target.needsIVA = target.needsIVA || field.needsIVA;
+      target.needsDTZ = target.needsDTZ || field.needsDTZ;
     }
+  }
 
-    // Dynamic topK calculation: number of products * 15 + 50 threshold
-    const dynamicTopK = Math.max(store.products.length * 15 + 50, 50);
-    console.log(
-      `Using dynamic topK: ${dynamicTopK} for ${store.products.length} products`
-    );
-
-    const retrieved = await retrieveRelevantSnippets(
-      `The item descriptions are: ${store.products
-        .map((p, i) => `${i}.${p.desc}`)
-        .join("\n")}`,
-      dynamicTopK
-    );
-
-    const { object: werkBriefObj } = await generateObject({
-      model: openai("gpt-5-mini"),
-      system: werkbriefSystemPrompt,
-      prompt: `Generate an array of json with the required fields for the content extracted from the pdf file. The products are:${store.products
-        .map((p, i) => {
-          return `${i}.${p.desc}, cartons:${p.ctns}, bruto:${p.bruto}, fob:${p.fob}, stks:${p.stks}`;
-        })
-        .join("\n\n")}\n. >>>>> The source reference which you can extract information from are the following:\n${retrieved
-        .map((r, i) => `(${i + 1}) ${r}`)
-        .join("\n")}`,
-      schema: ProductFieldsSchema, // AI model only generates fields, not metadata
-    });
-
-    // Agent assigns page number to all fields based on PDF structure
-    // Model doesn't extract page numbers - they're not in the PDF content!
-    const fieldsWithPageNumber = (werkBriefObj.fields || []).map((field) => ({
-      ...field,
-      "Page Number": pageNumber ?? 0, // Agent provides the page number
-    }));
-
-    return fieldsWithPageNumber;
-  });
+  return merged;
 }
