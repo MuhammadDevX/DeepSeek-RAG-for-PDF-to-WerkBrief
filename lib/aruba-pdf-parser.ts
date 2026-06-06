@@ -85,11 +85,19 @@ export function extractProductsFromArubaText(
       continue;
     }
 
-    // Check if line starts with ASIN or ISBN-10 pattern
-    // ASIN: B followed by 9 alphanumeric characters (e.g., B00YJJG39A)
-    // ISBN-10: 10 alphanumeric characters, often starting with digit (e.g., 1935660500, 0553593560, 141978269X)
-    // Must be followed by a letter (description start), NOT a dot (which indicates product category like BEAUTY6217.10.1090)
-    const asinMatch = line.match(/^([B0-9][A-Z0-9]{9})([^.].*)$/);
+    // Check if line starts with an ASIN or ISBN-10 product code.
+    // ASIN (B-prefixed, e.g. B0BQVWB9M9): matched liberally — works whether the
+    // PDF extractor puts a space after the code or concatenates the description
+    // ("B0BQVWB9M9A- Premium..."). The [^.] still rejects concatenated
+    // category+HS lines like "BEAUTY6217.10.1090".
+    const asinB = line.match(/^(B[A-Z0-9]{9})([^.].*)$/);
+    // ISBN-10 (10 digits, optional trailing X): only treat as a product when it
+    // is followed by whitespace and a real (letter-led) title. This rejects
+    // 10-digit PART NUMBERS that appear inside descriptions
+    // (e.g. "0280150939, 0280150909"), which would otherwise be misread as a new
+    // product and steal the real product's data line.
+    const isbn = line.match(/^([0-9]{9}[0-9Xx])\s+([A-Za-z][^.]*)$/);
+    const asinMatch = asinB || isbn;
 
     if (asinMatch) {
       // Save previous product if exists
@@ -173,15 +181,20 @@ export function extractProductsFromArubaText(
         lineToCheck = combined;
       }
 
-      // More robust pattern: Match PRODUCT_GROUP (letters with optional spaces), then numbers
-      // Pattern handles BOTH formats:
+      // Detect a data line by its strongest, layout-independent signal: an HS
+      // code (e.g. 8481.80.9005), a 2-letter country code somewhere, and a
+      // trailing numeric value. This works for BOTH layouts the PDF extractor
+      // can produce:
       // 1. Concatenated: DRUGSTORE3304.99.5000EAR99US40.362.7410.96
-      // 2. Space-separated: BOOK 4901.99.0050 EAR99 US 1 1.45 54.95 54.95
-      const dataMatch = lineToCheck.match(
-        /^[A-Z\s]{2,25}\s*[\d.]+[A-Z0-9]+[A-Z]{2}[\d.]+$/
-      );
+      // 2. Space-separated: AUTOMOTIVE 8481.80.9005 EAR99 US 1 0.80 59.99 59.99
+      //    (also when the category/seller text is split onto earlier lines and
+      //     the data line starts at the HS code: 4908.90.0000 EAR99 CN 1 ...)
+      const hasHsCode = /\d{3,4}\.\d{2}\.\d{2,4}/.test(lineToCheck);
+      const hasCountryCode = /[A-Z]{2}/.test(lineToCheck);
+      const endsWithNumber = /[\d.]+\s*$/.test(lineToCheck);
+      const isDataLine = hasHsCode && hasCountryCode && endsWithNumber;
 
-      if (dataMatch) {
+      if (isDataLine) {
         console.log(`   📊 Found data line: ${lineToCheck}`);
 
         // If we combined lines, skip them in the main loop

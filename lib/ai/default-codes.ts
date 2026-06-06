@@ -163,7 +163,14 @@ export function findDefaultCodeCandidates(
 ): DefaultCodeEntry[] {
   if (!description || description.trim().length < 2) return [];
 
-  const haystack = description.toLowerCase();
+  // Normalise first: lowercase, replace every run of punctuation/symbols/
+  // whitespace with a single space, and trim. This isolates each word and
+  // strips "extra" noise (hyphens, part numbers' punctuation, newlines) so the
+  // keyword regex matches reliably; multi-word keywords keep their single space.
+  const haystack = description
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
   const seen = new Set<string>();
   const candidates: DefaultCodeEntry[] = [];
 
